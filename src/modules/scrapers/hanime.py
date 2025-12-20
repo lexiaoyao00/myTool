@@ -1,0 +1,327 @@
+from typing import List,Dict,Optional,ClassVar
+import json
+
+from loguru import logger
+from curl_cffi import Response,Session
+from pydantic import BaseModel,model_validator
+from core.spider import Spider
+from parsel import Selector
+from yarl import URL
+from pathlib import Path
+import time
+
+
+class ItemSearchParameters(BaseModel):
+    query : str = None
+    type : str = None
+    genre : str = '全部'
+    tags : List[str] = None
+    sort : str = None
+    date : str = None
+    duration : str = None
+    page : int = 1
+
+    # 字段到URL参数名的映射（需要列表展开时使用）
+    FIELD_NAME_MAP : ClassVar[Dict[str, str]]= {
+        "tags": "tags[]"
+    }
+
+    def to_query_list(self, **kwargs) -> list[tuple[str, str]]:
+        """
+        转换为 yarl 可用的查询列表。
+        支持 model_dump() 的所有参数，例如：
+        exclude_none=True, exclude_unset=True, exclude_defaults=True
+        """
+        # 直接传递 kwargs 给 model_dump
+        data = self.model_dump(**kwargs)
+
+        query_list: list[tuple[str, str]] = []
+        for field_name, value in data.items():
+            param_name = self.FIELD_NAME_MAP.get(field_name, field_name)
+            if isinstance(value, list):
+                for v in value:
+                    query_list.append((param_name, str(v)))
+            else:
+                query_list.append((param_name, str(value)))
+        return query_list
+
+
+class ItemPlaylist(BaseModel):
+    title : str
+    playlist_urls : List[str]
+
+class ItemSearchPreview(BaseModel):
+    title : str
+    watch_url : str
+    pre_img : str
+    anime_id : str = None
+
+    @model_validator(mode='after')
+    def set_anime_id(self):
+        self.anime_id = URL(self.watch_url).query.get('v')
+        return self
+
+
+
+class ItemWatchInfo(BaseModel):
+    url : str
+    artist : str
+    category : str
+    upload_time : str
+    title : str
+    description : str
+    tags : List[str] = None
+    download_urls : Dict[str,str] = None
+
+    playlist : Optional[ItemPlaylist] = None
+
+
+class HAnimeWatch:
+    def __init__(self,spider:Spider,session:Session):
+        self.spider = spider
+        self.session = session
+
+    def _parseWatchInfo(self,html:str,parse_playlist:bool=True):
+        selector = Selector(text=html)
+        item = {}
+
+        item['url'] = selector.css('link[rel="canonical"]::attr(href)').get()
+
+        # logger.debug(f'item url: {item["url"]}')
+        if not item['url']:
+            return None
+
+        video_urls = selector.css('video source::attr(src)').getall()
+        video_urls_size = selector.css('video source::attr(size)').getall()
+        # print(video_urls)
+        # print(video_urls_size)
+        item['download_urls'] = {str(size):url for size,url in zip(video_urls_size,video_urls)}
+        # print(watch_urls)
+
+        item['artist'] = selector.css('a#video-artist-name::text').get(default='').strip()
+        item['category'] = selector.css('a#video-artist-name + a::text').get(default='').strip()
+
+
+        # video_details_wrapper = selector.css('div.video-details-wrapper')[0]
+        video_details_wrapper = selector.xpath('//div[normalize-space(@class)="video-details-wrapper"]')[0]
+        item['upload_time'] = video_details_wrapper.css('div.hidden-xs::text').get(default='').strip().split()[-1]
+        item['title'] = video_details_wrapper.css('div.video-description-panel > div:not([class])::text').get()
+        item['description'] = video_details_wrapper.css('div.video-description-panel > div.video-caption-text.caption-ellipsis::text').get(default='').replace('\r\n','').strip()
+
+        video_tags_wrapper = selector.css('div.video-tags-wrapper')[0]
+        single_video_tags = video_tags_wrapper.css('div.single-video-tag a:not([data-target])::text').getall()
+        item['tags'] = [tag.strip() for tag in single_video_tags]
+
+        if not parse_playlist:
+            return ItemWatchInfo(**item)
+
+        playlist_wrapper = selector.css('div#video-playlist-wrapper')[0]
+        if not playlist_wrapper:
+            return ItemWatchInfo(**item)
+
+        playlist_title = playlist_wrapper.css('h4::text').get().strip()
+        playlist_urls = playlist_wrapper.css('div.related-watch-wrap.multiple-link-wrapper a.overlay::attr(href)').getall()
+        item['playlist'] = ItemPlaylist(title=playlist_title,playlist_urls=playlist_urls)
+
+        return ItemWatchInfo(**item)
+
+
+    def getWatchInfo(self,url:str):
+        response : Response = self.spider.syncGet(url=url,session=self.session)
+        if response is None:
+            logger.warning('hanime getWatchInfo response is None')
+            return None
+
+        return self._parseWatchInfo(html=response.text)
+
+    async def getSeriesWatchInfos(self,url:str):
+        response : Response = self.spider.syncGet(url=url,session=self.session)
+        if response is None:
+            logger.warning(f'hanime getSeriesWatchInfo url:{url} response is None')
+            return None
+
+        if response.status_code not in [200,400]:
+            logger.warning(f'hanime getSeriesWatchInfo url:{url} response status is {response.status_code}')
+            return None
+
+        watch_info : ItemWatchInfo = self._parseWatchInfo(html=response.text)
+        if watch_info is None or watch_info.playlist is None or len(watch_info.playlist.playlist_urls) < 2:
+            return watch_info
+
+        series_res = await self.spider.asyncGet(urls=watch_info.playlist.playlist_urls)
+        if series_res is None:
+            return None
+
+        post_info_list : List[ItemWatchInfo] = [self._parseWatchInfo(html=res.text) for res in series_res]
+
+        return post_info_list
+
+class HAnimeSearch:
+    def __init__(self,spider:Spider,session:Session):
+        self.spider = spider
+        self.session = session
+        self.base_url = 'https://hanime1.me/search'
+
+        self.css_sel1 = '#home-rows-wrapper > div.home-rows-videos-wrapper > a:not([target])'
+        self.css_sel2 = '#home-rows-wrapper > div.content-padding-new > div.row.no-gutter div.hidden-xs[title]'
+
+
+    def _parseWatchPreviews2(self,selector:Selector):
+        watch_sels = selector.css(self.css_sel2)
+
+        if not watch_sels:
+            logger.warning('hanime _parseWatchPreviews2 watch_sels2 is None')
+            return None
+
+        urls = watch_sels.css('a.overlay::attr(href)').getall()
+        titles = watch_sels.css('::attr(title)').getall()
+        pre_imgs = watch_sels.css('img[loading]::attr(src)').getall()
+
+        return [ItemSearchPreview(title=title,watch_url=url,pre_img=pre_img) for title,url,pre_img in zip(titles,urls,pre_imgs)]
+
+
+    def _parseWatchPreviews(self,html:str):
+        selector = Selector(text=html)
+        watch_sels = selector.css(self.css_sel1)
+
+        if not watch_sels:
+            logger.warning('hanime _parseWatchPreviews watch_sels1 is None, try css_sel2')
+            return self._parseWatchPreviews2(selector)
+
+        urls = watch_sels.css('::attr(href)').getall()
+        titles = watch_sels.css('div.home-rows-videos-title::text').getall()
+        pre_imgs = watch_sels.css('img::attr(src)').getall()
+
+        return [ItemSearchPreview(title=title,watch_url=url,pre_img=pre_img) for title,url,pre_img in zip(titles,urls,pre_imgs)]
+
+
+    def getWatchPreview(self,url:str):
+        response : Response = self.spider.syncGet(url=url,session=self.session)
+        # print(response.text)
+        if response is None:
+            logger.warning('hanime getWatchPreview response is None')
+            return None
+
+        return self._parseWatchPreviews(html=response.text)
+
+    def getWatchPreviewWithParams(self,parameters:ItemSearchParameters):
+        url = URL(self.base_url)
+        url = url.with_query(parameters.to_query_list(exclude_unset=True))
+        logger.info(f'HAnimeSearch getWatchPreviewWithParams url: {url}')
+        return self.getWatchPreview(url=str(url))
+
+
+
+class HAnimeScraper:
+    def __init__(self):
+        self.session = Session()
+        self.spider = Spider(
+            headers = {
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7,en-US;q=0.6',
+                'cache-control': 'max-age=0',
+                'priority': 'u=0, i',
+                'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+                'sec-fetch-dest': 'document',
+                'sec-fetch-mode': 'navigate',
+                'sec-fetch-site': 'none',
+                'sec-fetch-user': '?1',
+                'upgrade-insecure-requests': '1',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+            }
+        )
+
+        self.searcher = HAnimeSearch(self.spider,session=self.session)
+        self.watch = HAnimeWatch(self.spider,session=self.session)
+
+
+
+    def searchPreviews(self, url:str):
+        return self.searcher.getWatchPreview(url=url)
+
+    def searchPreviewsWithParameters(self, parameters:ItemSearchParameters):
+        return self.searcher.getWatchPreviewWithParams(parameters=parameters)
+
+    def getWatchInfo(self,url:str):
+        return self.watch.getWatchInfo(url=url)
+
+    async def getSeriesWatchInfos(self,url:str):
+        return await self.watch.getSeriesWatchInfos(url=url)
+
+
+async def testHAnime():
+    scraper = HAnimeScraper()
+
+    # url = URL('https://hanime1.me/search')
+    # # url = url.update_query({"genre":"裏番"})
+    # url = url.update_query({"genre":"3D動畫"})
+    # print(f'url: {url}')
+    # item_pre_list = scraper.searchPreviews(url=str(url))
+
+
+    # params = ItemSearchParameters(genre="裏番",query='雷火劍')
+    # params = ItemSearchParameters(query='武田弘光',tags=['碧池','痴女','公眾場合'])
+    params = ItemSearchParameters(query='雷火劍',tags=['碧池','痴女','公眾場合'])
+    item_pre_list = scraper.searchPreviewsWithParameters(parameters=params)
+
+    if not item_pre_list:
+        print('hanime searchPreviews is None')
+        return
+
+    pre_list = [item_pre.model_dump() for item_pre in item_pre_list]
+    # print(pre_list)
+    file_name_part = params.model_dump(exclude_unset=True,exclude={'tags'}).values()
+    file_name =  '_'.join(file_name_part)
+    if params.tags:
+        for tag in params.tags:
+            file_name += f'_{tag}'
+    save_path = Path(f'data/hanime/page_{file_name}.json')
+    save_path.parent.mkdir(parents=True,exist_ok=True)
+
+    with open(str(save_path),'w',encoding='utf-8') as f:
+        json.dump(pre_list, f, ensure_ascii=False, indent=4)
+
+
+    # idx = 11
+    # item = item_pre_list[idx]
+
+    scraped_urls:List[str] = []
+    for idx,item in enumerate(item_pre_list):
+        url = item.watch_url
+        if url in scraped_urls:
+            logger.debug(f'url: {url} 已经爬取过了，跳过')
+            continue
+
+        serises = await scraper.getSeriesWatchInfos(url=url)
+
+        if serises is None:
+            return
+
+        serises_title:str = None
+        if isinstance(serises,list):
+            scraped_urls.extend([serise.url for serise in serises])
+            serises_title = serises[0].playlist.title
+            serises_dict = [serise.model_dump(exclude=['playlist']) for serise in serises]
+        else:
+            scraped_urls.append(serises.url)
+            serises_title = serises.title
+            serises_dict = serises.model_dump()
+
+        if serises_title is None:
+            serises_title = 'Unknown'
+
+        logger.info(f'系列名称: {serises_title}')
+        file_name = serises_title.split('/')[0]
+        logger.info(f'系列名称保存的文件名: {file_name}')
+        save_path = Path(f'data/hanime/{file_name}.json')
+        save_path.parent.mkdir(parents=True,exist_ok=True)
+        logger.info(f'save_path: {save_path}')
+
+        with open(str(save_path),'w',encoding='utf-8') as f:
+            json.dump(serises_dict, f, ensure_ascii=False, indent=4)
+
+        time.sleep(1)       # 防止过快导致429
+
+
