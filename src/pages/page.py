@@ -53,7 +53,7 @@ class BasePage(ABC):
         self.page.padding = self.get_padding()
         self.page.scroll = self.get_scroll()
         self.page.theme_mode = self.get_theme_mode()
-        self.page.on_resize = self.on_resize
+        self.page.on_resized = self.on_resize
 
     def get_title(self) -> str:
         """获取页面标题（可在子类中重写）"""

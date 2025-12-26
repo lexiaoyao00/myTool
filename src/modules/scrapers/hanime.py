@@ -277,7 +277,7 @@ async def testHAnime():
     if params.tags:
         for tag in params.tags:
             file_name += f'_{tag}'
-    save_path = Path(f'data/hanime/page_{file_name}.json')
+    save_path = Path(f'storage/data/hanime/page_{file_name}.json')
     save_path.parent.mkdir(parents=True,exist_ok=True)
 
     with open(str(save_path),'w',encoding='utf-8') as f:

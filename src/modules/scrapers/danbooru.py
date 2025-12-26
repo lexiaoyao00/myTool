@@ -8,7 +8,6 @@ from curl_cffi import Response
 from pydantic import BaseModel,model_validator
 from parsel import Selector
 from yarl import URL
-import pandas as pd
 from itertools import chain
 
 from core.spider import Spider
@@ -275,7 +274,7 @@ async def testDanbooruPage():
     post_info_list:List[ItemPostInfo] = await danbooru_post.getInfoFromPosts(urls=posts.keys())
     # print(post_info_list)
     post_list:ItemPostList = ItemPostList(posts=post_info_list, start_url=page_url,start_page=1, page_count=2)
-    post_list.save_to_json('./data/danbooru/test.json')
+    post_list.save_to_json('./storage/data/danbooru/test.json')
 
     file_url_list = [post.file_url for post in post_info_list]
     print(file_url_list)

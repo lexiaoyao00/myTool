@@ -48,33 +48,6 @@ class Subscriber:
             del self._callbacks[topic]
         logger.debug(f"Unsubscribed from topic: '{topic}'")
 
-    def receive_once(self, timeout: int = None) -> Optional[tuple]:
-        """
-        接收一次消息
-
-        Args:
-            timeout: 超时时间（毫秒）
-
-        Returns:
-            (topic, data) 元组，超时返回None
-        """
-        if timeout:
-            self.socket.setsockopt(zmq.RCVTIMEO, timeout)
-
-        try:
-            message = self.socket.recv_string()
-            parts = message.split(' ', 1)
-            if len(parts) == 2:
-                topic, json_data = parts
-                data = json.loads(json_data)
-                return topic, data
-            return parts[0], None
-        except zmq.Again:
-            return None
-        except Exception as e:
-            logger.error(f"Error receiving message: {e}")
-            return None
-
     def start_listening(self) -> None:
         """开始异步监听消息"""
         if self._running:

@@ -1,0 +1,8 @@
+{
+    "cmd": "start",        // 命令类型: start、stop、status等
+    "spider": "spiderA",   // 爬虫名字
+    "params": {            // 爬虫参数
+        "url": "https://example.com",
+        "pages": 5
+    }
+}

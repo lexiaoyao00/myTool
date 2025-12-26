@@ -36,6 +36,7 @@ class Publisher:
         }
         # 发送格式: topic + 空格 + json数据
         self.socket.send_string(f"{topic} {json.dumps(message)}")
+        logger.debug(f"Published message to {topic}: {data}")
 
     def publish_raw(self, topic: str, data: bytes) -> None:
         """

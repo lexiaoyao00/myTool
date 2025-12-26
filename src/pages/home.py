@@ -1,5 +1,6 @@
 import flet as ft
 from interface import Publisher
+from core.utils import TopicName,CommandType
 
 class HomePage:
     def __init__(self, page: ft.Page):
@@ -12,17 +13,27 @@ class HomePage:
 
 
     def show(self):
+        cmd = CommandType.START.value
+
         scrape_container = ft.Container(
             margin=10,
             padding=10,
             content=ft.Row([
                 ft.ElevatedButton(
                     text="danbooru",
-                    on_click=None,      #TODO
+                    on_click=lambda e:self.event_publisher.publish(TopicName.SPIDER.value,{
+                        "cmd": cmd,
+                        "spider" : "danbooru",
+                        "params" : None
+                    }),
                 ),
                 ft.ElevatedButton(
                     text="hanime",
-                    on_click=None,      #TODO
+                    on_click=lambda e:self.event_publisher.publish(TopicName.SPIDER.value,{
+                        "cmd": cmd,
+                        "spider" : "hanime",
+                        "params" : None
+                    }),
                 ),
             ]),
             alignment=ft.alignment.top_center
@@ -33,11 +44,19 @@ class HomePage:
             content=ft.Row([
                 ft.ElevatedButton(
                     text="laowang",
-                    on_click=lambda e:self.event_publisher.publish("login",{"site":"laowang"})     #TODO
+                    on_click=lambda e:self.event_publisher.publish(TopicName.LOGIN.value,{
+                        "cmd": cmd,
+                        "spider" : "laowang",
+                        "params" : None
+                    }),
                 ),
                 ft.ElevatedButton(
                     text="sstm",
-                    on_click=lambda e:self.event_publisher.publish("login",{"site":"sstm"})      #TODO
+                    on_click=lambda e:self.event_publisher.publish(TopicName.LOGIN.value,{
+                        "cmd": cmd,
+                        "spider" : "sstm",
+                        "params" : None
+                    }),
                 ),
             ]),
             alignment=ft.alignment.top_center

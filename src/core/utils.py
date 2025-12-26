@@ -1,8 +1,24 @@
+import enum
+
+
+class FileType(enum.Enum):
+    IMAGE = 'image'
+    VIDEO = 'video'
+    OTHER = 'other'
+
 def fileType(file_path:str) -> str:
     file_suffix = file_path.split('.')[-1].lower()
     if file_suffix in ['jpg','jpeg','png','gif']:
-        return 'image'
+        return FileType.IMAGE
     elif file_suffix in ['mp4','webm','mkv']:
-        return 'video'
+        return FileType.VIDEO
     else:
         return file_suffix
+
+class CommandType(enum.Enum):
+    START = 'start'
+    STOP = 'stop'
+
+class TopicName(enum.Enum):
+    SPIDER = 'spider'
+    LOGIN = 'login'

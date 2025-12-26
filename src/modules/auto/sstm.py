@@ -1,6 +1,5 @@
 import curl_cffi
 from parsel import Selector
-# from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 from datetime import datetime
 import asyncio

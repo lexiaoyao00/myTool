@@ -2,7 +2,6 @@
 
 from typing import Union, Dict, List
 import curl_cffi
-# from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
 from pathlib import Path
 import cv2
@@ -55,7 +54,7 @@ async def test_laowang():
         request = await first.value
         response = await request.response()
         response_content = await response.body()
-        path = Path('tmp/tncode.png')
+        path = Path('storage/temp/tncode.png')
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(str(path), "wb") as f:
             f.write(response_content)
@@ -140,16 +139,16 @@ def getOffset(path: str):
     img3 = img[part_height*2:height, 0:width]       # 第三份（底部）
 
     # 保存切割结果
-    cv2.imwrite('tmp/bg.jpg', img1)
-    cv2.imwrite('tmp/slider.jpg', img2)
-    cv2.imwrite('tmp/full.jpg', img3)
+    cv2.imwrite('storage/temp/bg.jpg', img1)
+    cv2.imwrite('storage/temp/slider.jpg', img2)
+    cv2.imwrite('storage/temp/full.jpg', img3)
 
     print("切割完成")
-    slide('tmp/slider.jpg')
+    slide('storage/temp/slider.jpg')
     print("主体提取完成")
-    return ocr('tmp/output_cropped.png', 'tmp/bg.jpg')
+    return ocr('storage/temp/output_cropped.png', 'storage/temp/bg.jpg')
 
-def slide(slider_path: str = 'tmp/slider.jpg'):
+def slide(slider_path: str = 'storage/temp/slider.jpg'):
     # 读取图片
     img = cv2.imread(slider_path)
 
@@ -177,7 +176,7 @@ def slide(slider_path: str = 'tmp/slider.jpg'):
     Path(slider_path).unlink()
 
     # 保存结果
-    save_path = 'tmp/output_cropped.png'
+    save_path = 'storage/temp/output_cropped.png'
     cv2.imwrite(save_path, rgba)
 
     print(f"主体提取并裁剪完成，{save_path}")
