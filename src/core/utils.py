@@ -6,7 +6,7 @@ class FileType(enum.Enum):
     VIDEO = 'video'
     OTHER = 'other'
 
-def fileType(file_path:str) -> str:
+def judge_file_type(file_path:str) -> str:
     file_suffix = file_path.split('.')[-1].lower()
     if file_suffix in ['jpg','jpeg','png','gif']:
         return FileType.IMAGE

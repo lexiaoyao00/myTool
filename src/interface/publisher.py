@@ -1,56 +1,66 @@
 import zmq
 import json
+import time
 from typing import Any
-from datetime import datetime
 from loguru import logger
 
+from .base import ZMQBase
 
-class Publisher:
-    """ZMQ发布者类"""
+class Publisher(ZMQBase):
+    """发布者类"""
 
-    def __init__(self, address: str = "tcp://127.0.0.1:5555"):
+    def __init__(self, address: str = "tcp://*:5555"):
         """
         初始化发布者
-
-        Args:
-            address: 绑定地址，格式如 "tcp://127.0.0.1:5555"
+        :param address: 绑定地址，默认 tcp://*:5555
         """
+        super().__init__()
         self.address = address
-        self.context = zmq.Context()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind(address)
-        self._running = False
-        logger.debug(f"Publisher bound to {address}")
+        self.socket.bind(self.address)
+        self.is_running = True
+        logger.info(f"Publisher bound to {address}")
+        # 给订阅者一些时间来连接
+        time.sleep(0.5)
 
-    def publish(self, topic: str, data: Any) -> None:
+    def publish(self, topic: str, data: Any, use_json: bool = True):
         """
         发布消息
-
-        Args:
-            topic: 主题
-            data: 要发送的数据
+        :param topic: 主题
+        :param data: 数据
+        :param use_json: 是否使用JSON序列化
         """
-        message = {
-            "timestamp": datetime.now().isoformat(),
-            "data": data
-        }
-        # 发送格式: topic + 空格 + json数据
-        self.socket.send_string(f"{topic} {json.dumps(message)}")
-        logger.debug(f"Published message to {topic}: {data}")
+        with self._lock:
+            if not self.is_running:
+                raise RuntimeError("Publisher is closed")
 
-    def publish_raw(self, topic: str, data: bytes) -> None:
+            if use_json:
+                message = json.dumps(data)
+            else:
+                message = str(data)
+
+            # 发送格式: topic message
+            self.socket.send_string(f"{topic} {message}")
+            logger.debug(f"Published message to '{topic}': {message}")
+
+    def publish_raw(self, topic: bytes, data: bytes):
         """
-        发布原始字节数据
-
-        Args:
-            topic: 主题
-            data: 字节数据
+        发布原始字节消息
+        :param topic: 主题（字节）
+        :param data: 数据（字节）
         """
-        self.socket.send_multipart([topic.encode('utf-8'), data])
+        with self._lock:
+            if not self.is_running:
+                raise RuntimeError("Publisher is closed")
 
-    def close(self) -> None:
+            self.socket.send_multipart([topic, data])
+            logger.debug(f"Published raw message to {topic}: {data}")
+
+    def close(self):
         """关闭发布者"""
-        self._running = False
-        self.socket.close()
-        self.context.term()
-        logger.debug("Publisher closed")
+        with self._lock:
+            if self.is_running:
+                self.is_running = False
+                self.socket.close()
+                self.context.term()
+                logger.info("Publisher closed")

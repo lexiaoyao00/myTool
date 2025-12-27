@@ -1,193 +1,120 @@
 import flet as ft
+from typing import Dict, Type, Any, Optional, List, Callable
+from interface import Requester, Subscriber
 from abc import ABC, abstractmethod
-from typing import Optional, List, Callable
+from loguru import logger
 
 
+# T = TypeVar('T', bound='BasePage')
+
+# ======= 交互函数 =======
+class InteractionReqSub(ABC):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._requester = Requester()
+        self._subscriber = Subscriber()
+        # self._handle_message : Callable[[str,Any],Any] = None
+
+    def request(self, data: Any, timeout: int = 5000, use_json: bool = True) -> Optional[Any]:
+        return self._requester.request(data, timeout, use_json)
+
+    def subscribe(self, topic: str):
+        self._subscriber.subscribe_topic(topic)
+
+    # def set_handler(self, hander: Callable[[str,Any],Any]):
+    #     self._handle_message = hander
+
+    @abstractmethod
+    def on_subscribe(self, topic: str, data: Any):
+        raise NotImplementedError
+
+    # 监听发布
+    def start_listening(self):
+        self._subscriber.start_receiving(self.on_subscribe)
+
+# ======= 基础页面类 =======
 class BasePage(ABC):
-    """
-    Flet页面基类
-    提供页面的基础功能和生命周期管理
-    """
+    router  = None  # 全局路由器引用（单例）
 
-    def __init__(self, page: ft.Page):
-        """
-        初始化基类
-        :param page: Flet Page对象
-        """
+    def __init__(self, page: ft.Page, **kwargs):
+        super().__init__(**kwargs)
         self.page = page
-        self.controls: List[ft.Control] = []
-        self._is_initialized = False
+        self._build()
 
     @abstractmethod
-    def build(self) -> List[ft.Control]:
-        """
-        构建页面UI（子类必须实现）
-        :return: 控件列表
-        """
-        pass
+    def _build(self) -> ft.Control:
+        """子类实现UI构建"""
+        raise NotImplementedError
 
-    def on_mount(self):
-        """页面挂载时的钩子函数"""
-        pass
-
-    def on_unmount(self):
-        """页面卸载时的钩子函数"""
-        pass
-
-    def on_resize(self, e):
-        """窗口大小改变时的钩子函数"""
-        pass
-
-    def initialize(self):
-        """初始化页面"""
-        if not self._is_initialized:
-            self.setup_page()
-            self.controls = self.build()
-            self.render()
-            self.on_mount()
-            self._is_initialized = True
-
-    def setup_page(self):
-        """设置页面基础配置（可在子类中重写）"""
-        self.page.title = self.get_title()
-        self.page.padding = self.get_padding()
-        self.page.scroll = self.get_scroll()
-        self.page.theme_mode = self.get_theme_mode()
-        self.page.on_resized = self.on_resize
-
-    def get_title(self) -> str:
-        """获取页面标题（可在子类中重写）"""
-        return "Flet Application"
-
-    def get_padding(self) -> int:
-        """获取页面内边距（可在子类中重写）"""
-        return 20
-
-    def get_scroll(self) -> Optional[str]:
-        """获取滚动模式（可在子类中重写）"""
-        return ft.ScrollMode.AUTO
-
-    def get_theme_mode(self) -> str:
-        """获取主题模式（可在子类中重写）"""
-        return ft.ThemeMode.LIGHT
-
-    def render(self):
-        """渲染页面"""
+    def show(self):
+        """显示该页面"""
+        content = self._build()
         self.page.controls.clear()
-        self.page.controls.extend(self.controls)
+        self.page.add(content)
         self.page.update()
 
-    def update(self):
-        """更新页面"""
-        self.page.update()
-
-    def add_control(self, control: ft.Control):
-        """添加控件到页面"""
-        self.controls.append(control)
-        self.page.controls.append(control)
-        self.update()
-
-    def remove_control(self, control: ft.Control):
-        """从页面移除控件"""
-        if control in self.controls:
-            self.controls.remove(control)
-        if control in self.page.controls:
-            self.page.controls.remove(control)
-        self.update()
-
-    def clear(self):
-        """清空页面所有控件"""
-        self.controls.clear()
-        self.page.controls.clear()
-        self.update()
-
-    def show_snack_bar(self, message: str, bgcolor: str = ft.Colors.BLUE):
-        """显示消息提示"""
-        snack_bar = ft.SnackBar(
-            content=ft.Text(message),
-            bgcolor=bgcolor
-        )
-        self.page.open(snack_bar)
-        self.update()
-
-    def show_dialog(self, title: str, content: str,
-                   on_confirm: Optional[Callable] = None):
-        """显示对话框"""
-        def close_dialog(e):
-            dialog.open = False
-            self.update()
-            if on_confirm:
-                on_confirm(e)
-
-        dialog = ft.AlertDialog(
-            title=ft.Text(title),
-            content=ft.Text(content),
-            actions=[
-                ft.TextButton("确定", on_click=close_dialog),
-            ],
-        )
-        self.page.open(dialog)
-        self.update()
-
-    def navigate_to(self, route: str):
-        """路由导航"""
-        self.page.go(route)
-
-    def go_back(self):
-        """返回上一页"""
-        self.page.go_back()
-
-
-class ResponsiveBasePage(BasePage):
-    """
-    响应式页面基类
-    支持不同屏幕尺寸的适配
-    """
-
-    def __init__(self, page: ft.Page):
-        super().__init__(page)
-        self.is_mobile = False
-        self.is_tablet = False
-        self.is_desktop = False
-        self.update_device_type()
-
-    def update_device_type(self):
-        """更新设备类型"""
-        width = self.page.width
-        self.is_mobile = width < 600
-        self.is_tablet = 600 <= width < 1024
-        self.is_desktop = width >= 1024
-
-    def on_resize(self, e):
-        """响应窗口大小变化"""
-        self.update_device_type()
-        self.on_responsive_change()
-        super().on_resize(e)
-
-    def on_responsive_change(self):
-        """响应式变化时的钩子函数（子类可重写）"""
+    def enter(self):
+        """进入该页面时调用"""
         pass
 
-    @abstractmethod
-    def build_mobile(self) -> List[ft.Control]:
-        """构建移动端UI"""
+    def exit(self):
+        """离开该页面时调用"""
         pass
 
-    @abstractmethod
-    def build_tablet(self) -> List[ft.Control]:
-        """构建平板端UI"""
-        pass
 
-    @abstractmethod
-    def build_desktop(self) -> List[ft.Control]:
-        """构建桌面端UI"""
-        pass
-
-    def build(self) -> List[ft.Control]:
-        """根据设备类型构建UI"""
-        if self.is_mobile:
-            return self.build_mobile()
-        elif self.is_tablet:
-            return self.build_tablet()
+    def go(self, path: str):
+        """导航到其他页面"""
+        if BasePage.router:
+            BasePage.router.go(path, self.page)
         else:
-            return self.build_desktop()
+            raise RuntimeError("Router 未初始化")
+
+
+# ======= 单例路由器（不依赖 ft.Page） =======
+class Router:
+    _instance = None
+
+    def __init__(self):
+        self.routes : Dict[str, Type[BasePage]] = {}      # 路径 -> 页面类
+        self.instances : Dict[str, BasePage] = {}   # 路径 -> 页面实例缓存
+        self.active_path : str = "/"                # 当前活动页面路径
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+            BasePage.router = cls._instance
+        return cls._instance
+
+    def register(self, path: str):
+        """装饰器注册页面类"""
+        def decorator(cls):
+            self.routes[path] = cls
+            return cls
+        return decorator
+
+    def go(self, path: str, page: ft.Page):
+        """页面跳转+生命周期管理"""
+        if path not in self.routes:
+            logger.warning(f"路由 {path} 未注册")
+            return
+
+        page_cls = self.routes[path]
+
+        # 调用前一页面 exit()
+        if self.active_path in self.instances:
+            current = self.instances[self.active_path]
+            if hasattr(current, "exit"):
+                current.exit()
+
+        if path not in self.instances:
+            self.instances[path] = page_cls(page)
+
+        instance = self.instances[path]
+        self.active_path = path
+
+        # 调用 enter()
+        if hasattr(instance, "enter"):
+            instance.enter()
+
+        instance.show()

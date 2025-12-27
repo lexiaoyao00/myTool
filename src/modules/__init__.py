@@ -1,2 +1,2 @@
-from .auto import *
+from .automation import *
 from .scrapers import *

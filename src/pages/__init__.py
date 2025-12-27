@@ -1,8 +1,8 @@
-from .page import BasePage
+# from .page import BasePage
 from .home import HomePage
 
 
 __all__ = [
-    "BasePage",
+    # "BasePage",
     "HomePage",
 ]

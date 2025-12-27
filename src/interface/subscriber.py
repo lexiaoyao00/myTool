@@ -1,103 +1,136 @@
 import zmq
 import json
 import threading
-from typing import Any, Callable, Optional, Dict
+from typing import Callable, Optional, List
 from loguru import logger
 
+from .base import ZMQBase
 
-class Subscriber:
-    """ZMQ订阅者类"""
+class Subscriber(ZMQBase):
+    """订阅者类"""
 
-    def __init__(self, address: str = "tcp://127.0.0.1:5555"):
+    def __init__(self, address: str = "tcp://localhost:5555", topics: List[str] = None):
         """
         初始化订阅者
-
-        Args:
-            address: 连接地址
+        :param address: 连接地址
+        :param topics: 要订阅的主题列表，None表示订阅所有
         """
+        super().__init__()
         self.address = address
-        self.context = zmq.Context()
         self.socket = self.context.socket(zmq.SUB)
-        self.socket.connect(address)
-        self._running = False
-        self._thread = None
-        self._callbacks: Dict[str, Callable] = {}
-        logger.debug(f"Subscriber connected to {address}")
+        self.socket.connect(self.address)
 
-    def __del__(self):
-        """析构函数，关闭连接"""
-        self.close()
+        # 设置订阅主题
+        if topics is None:
+            self.socket.setsockopt_string(zmq.SUBSCRIBE, "")
+        else:
+            for topic in topics:
+                self.socket.setsockopt_string(zmq.SUBSCRIBE, topic)
 
-    def subscribe(self, topic: str = "", callback: Optional[Callable[[str, Any], None]] = None) -> None:
+        self.is_running = True
+        self._receive_thread = None
+        self._callback = None
+        logger.info(f"Subscriber connected to {address}")
+
+    def subscribe_topic(self, topic: str):
         """
-        订阅主题
-
-        Args:
-            topic: 要订阅的主题，空字符串表示订阅所有
-            callback: 收到消息时的回调函数
+        订阅新主题
+        :param topic: 主题
         """
         self.socket.setsockopt_string(zmq.SUBSCRIBE, topic)
-        if callback:
-            self._callbacks[topic] = callback
-        logger.debug(f"Subscribed to topic: '{topic}'")
+        logger.debug(f"Subscribed to topic {topic}")
 
-    def unsubscribe(self, topic: str) -> None:
-        """取消订阅主题"""
+    def unsubscribe_topic(self, topic: str):
+        """
+        取消订阅主题
+        :param topic: 主题
+        """
         self.socket.setsockopt_string(zmq.UNSUBSCRIBE, topic)
-        if topic in self._callbacks:
-            del self._callbacks[topic]
-        logger.debug(f"Unsubscribed from topic: '{topic}'")
+        logger.debug(f"Unsubscribed from topic {topic}")
 
-    def start_listening(self) -> None:
-        """开始异步监听消息"""
-        if self._running:
-            logger.info("Already listening")
-            return
+    def receive(self, timeout: int = None, use_json: bool = True) -> Optional[tuple]:
+        """
+        接收一条消息（阻塞）
+        :param timeout: 超时时间（毫秒）
+        :param use_json: 是否使用JSON反序列化
+        :return: (topic, data) 或 None
+        """
+        if not self.is_running:
+            return None
 
-        self._running = True
-        self._thread = threading.Thread(target=self._listen_loop, daemon=True)
-        self._thread.start()
-        logger.debug("Started listening for messages")
+        if timeout:
+            self.socket.setsockopt(zmq.RCVTIMEO, timeout)
 
-    def _listen_loop(self) -> None:
-        """监听循环"""
-        # 设置接收超时，以便能够检查_running标志
-        self.socket.setsockopt(zmq.RCVTIMEO, 1000)
+        try:
+            message = self.socket.recv_string()
+            parts = message.split(" ", 1)
 
-        while self._running:
-            try:
-                message = self.socket.recv_string()
-                parts = message.split(' ', 1)
+            if len(parts) == 2:
+                topic, data = parts
+                if use_json:
+                    data = json.loads(data)
+                return topic, data
+            return parts[0], None
 
-                if len(parts) == 2:
-                    topic, json_data = parts
-                    data = json.loads(json_data)
+        except zmq.Again:
+            return None
+        except Exception as e:
+            logger.error(f"Receive error: {e}")
+            return None
 
-                    # 查找匹配的回调函数
-                    for subscribed_topic, callback in self._callbacks.items():
-                        if topic.startswith(subscribed_topic):
-                            try:
-                                callback(topic, data)
-                            except Exception as e:
-                                logger.error(f"Error in callback: {e}")
+    def receive_raw(self, timeout: int = None) -> Optional[List[bytes]]:
+        """
+        接收原始字节消息
+        :param timeout: 超时时间（毫秒）
+        :return: [topic, data] 或 None
+        """
+        if not self.is_running:
+            return None
 
-            except zmq.Again:
-                # 超时，继续循环
-                continue
-            except Exception as e:
-                if self._running:
-                    logger.error(f"Error in listen loop: {e}")
+        if timeout:
+            self.socket.setsockopt(zmq.RCVTIMEO, timeout)
 
-    def stop_listening(self) -> None:
-        """停止监听"""
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=2)
-        logger.debug("Stopped listening")
+        try:
+            return self.socket.recv_multipart()
+        except zmq.Again:
+            return None
 
-    def close(self) -> None:
+    def start_receiving(self, callback: Callable, use_json: bool = True):
+        """
+        启动异步接收（在新线程中）
+        :param callback: 回调函数，签名: callback(topic, data)
+        :param use_json: 是否使用JSON反序列化
+        """
+        self._callback = callback
+        self._receive_thread = threading.Thread(
+            target=self._receive_loop,
+            args=(use_json,),
+            daemon=True
+        )
+        self._receive_thread.start()
+
+    def _receive_loop(self, use_json: bool):
+        """接收循环"""
+        while self.is_running:
+            result = self.receive(timeout=1000, use_json=use_json)
+            if result and self._callback:
+                topic, data = result
+                logger.debug(f"Subscriber received: {result}")
+                try:
+                    self._callback(topic, data)
+                except Exception as e:
+                    logger.error(f"Callback error: {e}")
+
+    def stop_receiving(self):
+        """停止异步接收"""
+        self.is_running = False
+        if self._receive_thread:
+            self._receive_thread.join(timeout=2)
+
+    def close(self):
         """关闭订阅者"""
-        self.stop_listening()
-        self.socket.close()
-        self.context.term()
-        logger.debug("Subscriber closed")
+        self.stop_receiving()
+        with self._lock:
+            self.socket.close()
+            self.context.term()
+            logger.info("Subscriber closed")

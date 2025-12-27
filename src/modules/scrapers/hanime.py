@@ -315,7 +315,7 @@ async def testHAnime():
         logger.info(f'系列名称: {serises_title}')
         file_name = serises_title.split('/')[0]
         logger.info(f'系列名称保存的文件名: {file_name}')
-        save_path = Path(f'data/hanime/{file_name}.json')
+        save_path = Path(f'storage/data/hanime/{file_name}.json')
         save_path.parent.mkdir(parents=True,exist_ok=True)
         logger.info(f'save_path: {save_path}')
 

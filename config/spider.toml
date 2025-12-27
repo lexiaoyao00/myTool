@@ -1,0 +1,22 @@
+
+[danbooru]
+referer = "https://danbooru.donmai.us"
+hot = "https://danbooru.donmai.us/posts?tags=order%3Arank+-censored"
+
+[hanime]
+referer = "https://hanime1.me/"
+search_url = "https://hanime1.me/search"
+genre = [ "全部", "里番", "泡面番", "Motion Anime", "3DCG", "2.5D", "2D动画", "AI生成", "MMD", "Cosplay", "无码黄油", "新番预告", "H漫画",]
+sort = []
+date = []
+duration = []
+
+
+[hanime.tags]
+movie_properties = []
+character_relationships = []
+character_setting = []
+appearance = []
+situational_Place = []
+story_plot = []
+sex_position = []

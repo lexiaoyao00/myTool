@@ -1,65 +1,60 @@
 import flet as ft
 from interface import Publisher
+from typing import Callable, Any
 from core.utils import TopicName,CommandType
+from .page import BasePage,Router,InteractionReqSub
 
-class HomePage:
+@Router.instance().register("/home")
+class HomePage(BasePage,InteractionReqSub):
     def __init__(self, page: ft.Page):
-        self.page = page
+        super().__init__(page=page)
+        self.init()
+        # self.event_publisher = Publisher()
+        # self.event_reqSub = InteractionReqSub()
+
+    def init(self):
         self.page.title = "Home Page"
-        self.event_publisher = Publisher()
-
-    def on_click_test(self, e):
-        print("btn on click")
+        self.start_listening()
 
 
-    def show(self):
-        cmd = CommandType.START.value
+    def on_subscribe(self, topic: str, data: Any):
+        print(f"Received message on topic {topic}: {data}")
 
+
+    def _build(self):
         scrape_container = ft.Container(
             margin=10,
             padding=10,
+            expand=True,
+            alignment=ft.alignment.top_center,
             content=ft.Row([
                 ft.ElevatedButton(
                     text="danbooru",
-                    on_click=lambda e:self.event_publisher.publish(TopicName.SPIDER.value,{
-                        "cmd": cmd,
-                        "spider" : "danbooru",
-                        "params" : None
-                    }),
+                    on_click=lambda e:self.request("danbooru"),
                 ),
                 ft.ElevatedButton(
                     text="hanime",
-                    on_click=lambda e:self.event_publisher.publish(TopicName.SPIDER.value,{
-                        "cmd": cmd,
-                        "spider" : "hanime",
-                        "params" : None
-                    }),
+                    on_click=lambda e:self.request("hanime"),
                 ),
-            ]),
-            alignment=ft.alignment.top_center
+
+            ])
         )
         login_container = ft.Container(
             margin=10,
             padding=10,
+            expand=True,
+            alignment=ft.alignment.top_center,
             content=ft.Row([
                 ft.ElevatedButton(
                     text="laowang",
-                    on_click=lambda e:self.event_publisher.publish(TopicName.LOGIN.value,{
-                        "cmd": cmd,
-                        "spider" : "laowang",
-                        "params" : None
-                    }),
+                    on_click=lambda e:self.request("laowang"),
                 ),
                 ft.ElevatedButton(
                     text="sstm",
-                    on_click=lambda e:self.event_publisher.publish(TopicName.LOGIN.value,{
-                        "cmd": cmd,
-                        "spider" : "sstm",
-                        "params" : None
-                    }),
+                    on_click=lambda e:self.request("sstm"),
                 ),
-            ]),
-            alignment=ft.alignment.top_center
+
+            ])
         )
 
         tabs = ft.Tabs(
@@ -78,4 +73,4 @@ class HomePage:
             ],
         )
 
-        self.page.add(tabs)
+        return tabs
