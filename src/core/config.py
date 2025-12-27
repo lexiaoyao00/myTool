@@ -32,6 +32,9 @@ class ConfigManager:
         """重新加载配置文件"""
         self._load()
 
+    def keys(self):
+        return self._data.keys()
+
     # ---- 字典访问支持 ----
     def __getitem__(self, key: str) -> Any:
         return self._data[key]

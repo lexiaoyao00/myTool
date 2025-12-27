@@ -5,9 +5,20 @@ from datetime import datetime
 import asyncio
 import time
 
-class SSTM:
+from ..crawler import Crawler
+
+class SSTM(Crawler):
     def __init__(self):
+        super().__init__()
         self.init()
+
+    async def run(self,acount:str = '2950848462@qq.com', password:str = 'xc1290435868+'):
+        link = self.checkInLink()
+        print('登录链接：')
+        print(link)
+
+        await  self.autoCheckIn(checkInLink=link,email=acount,passwd=password)
+
 
     def init(self):
         self.cookies = {

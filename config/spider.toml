@@ -1,3 +1,4 @@
+title = "New Title"
 
 [danbooru]
 referer = "https://danbooru.donmai.us"
@@ -11,6 +12,16 @@ sort = []
 date = []
 duration = []
 
+[laowang]
+referer = "laowang.vip"
+
+[sstm]
+referer = "https://sstm.moe/"
+account = "2950848462@qq.com"
+password = "xc1290435868+"
+
+[database]
+server = "127.0.0.1"
 
 [hanime.tags]
 movie_properties = []

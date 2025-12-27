@@ -13,6 +13,7 @@ if __name__ == "__main__":
     # 首次初始化必须传文件路径
     config_file = 'config/spider.toml'
     config = ConfigManager(config_file)
+    print(config.keys())
 
     # 像字典一样访问
     # print(config["database"]["server"])

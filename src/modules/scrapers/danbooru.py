@@ -2,7 +2,6 @@ from typing import List,Optional
 from pathlib import Path
 
 from loguru import logger
-import json
 
 from curl_cffi import Response
 from pydantic import BaseModel,model_validator
@@ -11,7 +10,7 @@ from yarl import URL
 from itertools import chain
 
 from core.spider import Spider
-import asyncio
+from ..crawler import Crawler
 
 class ItemPostsParams(BaseModel):
     d: int = 1
@@ -188,8 +187,9 @@ class DanbooruPage:
 
 
 
-class DanbooruScraper:
+class DanbooruScraper(Crawler):
     def __init__(self):
+        super().__init__()
         self.spider = Spider(
             headers = {
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -209,6 +209,38 @@ class DanbooruScraper:
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
             }
         )
+
+    async def run(self, scrape_type:str = None, **kwargs):
+        logger.info(f"DanbooruScraper run: {scrape_type}")
+        if scrape_type is None:
+            return await self.test(**kwargs)
+
+        info = scrape_type.split('_')
+        if info[0] == 'pre':
+            return await self.scrapeHotPost(**kwargs)
+        elif info[0] == 'detail':
+            return await self.scrapePostInfo(**kwargs)
+        else:
+            return await self.test(**kwargs)
+
+
+    async def test(self):
+        # danbooru_page = DanbooruPage(spider=self.spider)
+        # page_url = 'https://danbooru.donmai.us/'
+        print("===========11111111===============")
+        page_url = 'https://danbooru.donmai.us/posts?tags=order%3Arank+-censored'
+        # posts = danbooru_page.getPost(url=page_url)
+        posts = await self.scrapePosts(start_page=1,scrape_page_count=1)
+        # print(posts)
+        print(posts.values())
+        # danbooru_post = DanbooruPost(spider=self.spider)
+        post_info_list:List[ItemPostInfo] = await self.scrapeInfoFromPosts(urls=posts.keys())
+        # print(post_info_list)
+        post_list:ItemPostList = ItemPostList(posts=post_info_list, start_url=page_url,start_page=1, page_count=2)
+        post_list.save_to_json('./storage/data/danbooru/test.json')
+
+        file_url_list = [post.file_url for post in post_info_list]
+        print(file_url_list)
 
     async def scrapePosts(self, start_page:int =  1, scrape_page_count:int = 1, params:ItemPostsParams = None ):
         if params is None:
@@ -231,6 +263,10 @@ class DanbooruScraper:
     def scrapePostInfo(self, url:str):
         danbooru_post = DanbooruPost(self.spider)
         return danbooru_post.getInfoFromPost(url)
+
+    def scrapeInfoFromPosts(self, urls:List[str]):
+        danbooru_post = DanbooruPost(self.spider)
+        return danbooru_post.getInfoFromPosts(urls)
 
     def downloadPost(self, post:ItemPostInfo):
         download_url = post.download_url

@@ -2,12 +2,12 @@ from abc import ABC, abstractmethod
 
 
 
-class Scraper(ABC):
+class Crawler(ABC):
     """爬虫基类"""
-    def __init__(self, name: str, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.name = name
 
+    @staticmethod
     @abstractmethod
     async def run(self, *args, **kwargs):
         ...

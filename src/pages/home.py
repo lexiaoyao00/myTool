@@ -22,6 +22,15 @@ class HomePage(BasePage,InteractionReqSub):
 
 
     def _build(self):
+        request_data = {
+            "type": CommandType.START.value,
+            "topic": TopicName.SPIDER.value,
+            "params": {
+                "start_page": 1,
+            }
+        }
+        danbooru_msg = f"danbooru {request_data}"
+        laowang_msg = f"laowang {request_data}"
         scrape_container = ft.Container(
             margin=10,
             padding=10,
@@ -30,7 +39,7 @@ class HomePage(BasePage,InteractionReqSub):
             content=ft.Row([
                 ft.ElevatedButton(
                     text="danbooru",
-                    on_click=lambda e:self.request("danbooru"),
+                    on_click=lambda e:self.request(danbooru_msg),
                 ),
                 ft.ElevatedButton(
                     text="hanime",
@@ -47,7 +56,7 @@ class HomePage(BasePage,InteractionReqSub):
             content=ft.Row([
                 ft.ElevatedButton(
                     text="laowang",
-                    on_click=lambda e:self.request("laowang"),
+                    on_click=lambda e:self.request(laowang_msg),
                 ),
                 ft.ElevatedButton(
                     text="sstm",
