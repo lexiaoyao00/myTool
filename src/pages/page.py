@@ -8,29 +8,25 @@ from loguru import logger
 # T = TypeVar('T', bound='BasePage')
 
 # ======= 交互函数 =======
-class InteractionReqSub(ABC):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._requester = Requester()
-        self._subscriber = Subscriber()
-        # self._handle_message : Callable[[str,Any],Any] = None
+# class InteractionReqSub(ABC):
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
+#         self._requester = Requester()
+#         self._subscriber = Subscriber()
 
-    def request(self, data: Any, timeout: int = 5000, use_json: bool = True) -> Optional[Any]:
-        return self._requester.request(data, timeout, use_json)
+#     def request(self, data: Any, timeout: int = 5000, use_json: bool = True) -> Optional[Any]:
+#         return self._requester.request(data, timeout, use_json)
 
-    def subscribe(self, topic: str):
-        self._subscriber.subscribe_topic(topic)
+#     def subscribe(self, topic: str):
+#         self._subscriber.subscribe_topic(topic)
 
-    # def set_handler(self, hander: Callable[[str,Any],Any]):
-    #     self._handle_message = hander
+#     @abstractmethod
+#     def on_subscribe(self, topic: str, data: Any):
+#         raise NotImplementedError
 
-    @abstractmethod
-    def on_subscribe(self, topic: str, data: Any):
-        raise NotImplementedError
-
-    # 监听发布
-    def start_listening(self):
-        self._subscriber.start_receiving(self.on_subscribe)
+#     # 监听发布
+#     def start_listening(self):
+#         self._subscriber.start_receiving(self.on_subscribe)
 
 # ======= 基础页面类 =======
 class BasePage(ABC):

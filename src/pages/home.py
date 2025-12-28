@@ -2,19 +2,21 @@ import flet as ft
 from interface import Publisher
 from typing import Callable, Any
 from core.utils import TopicName,CommandType
-from .page import BasePage,Router,InteractionReqSub
+from .page import BasePage,Router
+from interface.reqsub import InteractionReqSub,ReqSubFactory
 
 @Router.instance().register("/home")
-class HomePage(BasePage,InteractionReqSub):
+class HomePage(BasePage):
     def __init__(self, page: ft.Page):
         super().__init__(page=page)
+        self._reqsub = ReqSubFactory.get(name='ui',request_addr="tcp://localhost:5556",subscribe_addr="tcp://localhost:5555", subscribe_handler=self.on_subscribe)
         self.init()
         # self.event_publisher = Publisher()
         # self.event_reqSub = InteractionReqSub()
 
     def init(self):
         self.page.title = "Home Page"
-        self.start_listening()
+        self._reqsub.start_listening()
 
         # scrape_container = ft.Container(
         #     margin=10,
@@ -51,7 +53,7 @@ class HomePage(BasePage,InteractionReqSub):
         if tab_name in self.tabs_name:
             self.page.open(ft.AlertDialog(
                 title=ft.Text("提示"),
-                content=ft.Text("该标签已存在"),
+                content=ft.Text(f"标签 '{tab_name}'已存在"),
                 alignment=ft.alignment.center,
             ))
             return
@@ -76,7 +78,7 @@ class HomePage(BasePage,InteractionReqSub):
         if tab_name not in self.tabs_name:
             self.page.open(ft.AlertDialog(
                 title=ft.Text("提示"),
-                content=ft.Text("该标签不存在"),
+                content=ft.Text(f"标签 '{tab_name}' 不存在"),
                 alignment=ft.alignment.center,
             ))
             return
@@ -161,11 +163,13 @@ class HomePage(BasePage,InteractionReqSub):
 
     def _build(self):
         self.add_tab("爬虫")
-        self.add_button("爬虫", "danbooru", lambda e:self.request("danbooru"))
-        self.add_button("爬虫", "hanime", lambda e:self.request("hanime"))
+        self.add_button("爬虫", "danbooru", lambda e:self._reqsub.request("danbooru"))
+        self.add_button("爬虫", "hanime", lambda e:self._reqsub.request("hanime"))
+
 
         self.add_tab("签到")
-        self.add_button("签到", "laowang", lambda e:self.request("laowang"))
-        self.add_button("签到", "sstm", lambda e:self.request("sstm"))
+        self.add_button("签到", "laowang", lambda e:self._reqsub.request("laowang"))
+        self.add_button("签到", "sstm", lambda e:self._reqsub.request("sstm"))
+
 
         return self.tabs

@@ -3,7 +3,7 @@ import flet as ft
 from loguru import logger
 from modules import testDanbooruPage, test_laowang, testHAnime, testSSTM
 from modules import DanbooruScraper,Laowang, HAnimeScraper, SSTM
-from spiderManager import SpiderManager,SpiderManagerFunc
+from spiderManager import SpiderManager
 
 
 def subscribe_spider():
@@ -12,16 +12,6 @@ def subscribe_spider():
     spider_manager.register("laowang", Laowang)
     spider_manager.register("hanime", HAnimeScraper)
     spider_manager.register("sstm", SSTM)
-
-
-    # spider_manager = SpiderManagerFunc()
-    # spider_manager.register("danbooru", testDanbooruPage)
-    # spider_manager.register("laowang", test_laowang)
-    # spider_manager.register("hanime", testHAnime)
-    # spider_manager.register("sstm", testSSTM)
-
-
-    spider_manager.start_listening()
 
 
 def main(page:ft.Page):
