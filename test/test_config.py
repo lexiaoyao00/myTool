@@ -7,12 +7,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../s
 
 
 
-from core.config import ConfigManager
+from core.config import Config,ConfigManager
 
 if __name__ == "__main__":
     # 首次初始化必须传文件路径
-    config_file = 'config/spider.toml'
-    config = ConfigManager(config_file)
+    config_file = 'config/test.toml'
+    config_manager = ConfigManager()
+    config = config_manager.getConfig(config_file)
     print(config.keys())
 
     # 像字典一样访问
@@ -29,5 +30,5 @@ if __name__ == "__main__":
     config.save()
 
     # 再次获取实例（不会重新加载）
-    config2 = ConfigManager()
+    config2 = Config()
     print(config2["title"])  # 'New Title'

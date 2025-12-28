@@ -4,7 +4,6 @@ from loguru import logger
 from modules import testDanbooruPage, test_laowang, testHAnime, testSSTM
 from modules import DanbooruScraper,Laowang, HAnimeScraper, SSTM
 from spiderManager import SpiderManager,SpiderManagerFunc
-from core.config import ConfigManager
 
 
 def subscribe_spider():

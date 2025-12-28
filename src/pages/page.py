@@ -39,7 +39,6 @@ class BasePage(ABC):
     def __init__(self, page: ft.Page, **kwargs):
         super().__init__(**kwargs)
         self.page = page
-        self._build()
 
     @abstractmethod
     def _build(self) -> ft.Control:

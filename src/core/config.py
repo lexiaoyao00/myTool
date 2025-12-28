@@ -1,9 +1,9 @@
 import toml
 from pathlib import Path
-from typing import Any
+from typing import Any,Dict
 
 
-class ConfigManager:
+class Config:
     _instance = None
     _data: dict = {}
     _file_path: Path = None
@@ -61,3 +61,35 @@ class ConfigManager:
                 current[p] = {}
             current = current[p]
         current[parts[-1]] = value
+
+
+
+class ConfigManager:
+    _instance = None
+    def __new__(cls):
+        # 单例模式
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        self.config_map : Dict[str, Config] = {}
+
+    def getConfig(self,file_path: str | Path) -> Config:
+        if file_path not in self.config_map:
+            self.config_map[file_path] = Config(file_path)
+        return self.config_map[file_path]
+
+    def reload(self,file_path: str | Path):
+        if file_path not in self.config_map:
+            self.config_map[file_path] = Config(file_path)
+        else:
+            self.config_map[file_path].reload()
+
+    def save(self,file_path: str | Path):
+        if file_path in self.config_map:
+            self.config_map[file_path].save()
+
+    def save_all(self):
+        for config in self.config_map.values():
+            config.save()

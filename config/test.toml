@@ -1,0 +1,4 @@
+title = "New Title"
+
+[database]
+server = "127.0.0.1"
