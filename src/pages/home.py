@@ -2,7 +2,8 @@ import flet as ft
 from interface import Publisher
 from typing import Callable, Any
 from core.utils import TopicName,CommandType
-from .page import BasePage,Router
+from .page import BasePage
+from .router import register_route,Navigator
 from interface.reqsub import InteractionReqSub,ReqSubFactory
 
 class SpiderButton(ft.ElevatedButton):
@@ -38,10 +39,11 @@ class SpiderTab(ft.Tab):
     def add_button(self, button: SpiderButton):
         self._container.content.controls.append(button)
 
-@Router.instance().register("/home")
+# @Router.instance().register("/home")
+@register_route("/")
 class HomePage(BasePage):
-    def __init__(self, page: ft.Page):
-        super().__init__(page=page)
+    def __init__(self, page: ft.Page, nav: Navigator):
+        super().__init__(page, nav)
         self._reqsub = ReqSubFactory.get(name='ui',request_addr="tcp://localhost:5556",subscribe_addr="tcp://localhost:5555", subscribe_handler=self.on_subscribe)
         self.init()
 
@@ -87,9 +89,10 @@ class HomePage(BasePage):
     def on_subscribe(self, topic: str, data: Any):
         print(f"Received message on topic {topic}: {data}")
 
-    def _build(self):
+    def build(self) -> ft.View:
         self.add_tab("爬虫")
-        self.add_button("爬虫", "danbooru", lambda e:self._reqsub.request("danbooru"))
+        # self.add_button("爬虫", "danbooru", lambda e:self._reqsub.request("danbooru"))
+        self.add_button("爬虫", "danbooru", lambda e:self.nav.navigate('/danbooru'))
         self.add_button("爬虫", "hanime", lambda e:self._reqsub.request("hanime"))
 
 
@@ -98,4 +101,10 @@ class HomePage(BasePage):
         self.add_button("签到", "sstm", lambda e:self._reqsub.request("sstm"))
 
 
-        return self._tabs
+        return ft.View(
+            route='/',
+            controls=[
+                self.common_navbar("首页"),
+                self._tabs,
+            ]
+        )

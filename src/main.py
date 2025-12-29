@@ -1,9 +1,40 @@
-from pages import Router
+# from pages import Router
 import flet as ft
 from loguru import logger
 from modules import testDanbooruPage, test_laowang, testHAnime, testSSTM
 from modules import DanbooruScraper,Laowang, HAnimeScraper, SSTM
 from spiderManager import SpiderManager
+
+from pages import Navigator, RouteManager
+
+# 应用
+class MyApp:
+    def main(self, page: ft.Page):
+        page.title = "my app"
+        # page.window.width = 400
+        # page.window.height = 300
+
+        nav = Navigator(page)
+
+        def route_change(e: ft.RouteChangeEvent):
+            page.views.clear()
+            PageCls = RouteManager.get(e.route)
+            if PageCls:
+                page.views.append(PageCls(page, nav).build())
+            else:
+                page.views.append(ft.View(
+                    route=e.route,
+                    controls=[ft.Text(f"404: {e.route}")]
+                ))
+            page.update()
+
+        page.on_route_change = route_change
+        page.go("/")   # 进入首页
+        nav.current = "/"  # 初始化当前路由
+
+    def run(self):
+        ft.app(target=self.main)
+
 
 
 def subscribe_spider():
@@ -14,7 +45,7 @@ def subscribe_spider():
     spider_manager.register("sstm", SSTM)
 
 
-def main(page:ft.Page):
+def main():
     # ConfigManager('/config/spider.toml')
     log_dir = 'storage/logs'
     logger.remove()
@@ -24,9 +55,10 @@ def main(page:ft.Page):
     logger.add(f"{log_dir}/error.log", rotation="10 MB", retention="10 days",level="ERROR")
     # home_page = HomePage(page)
     # home_page.show()
-    Router.instance().go("/home", page)
+    # Router.instance().go("/home", page)
     subscribe_spider()
+    MyApp().run()
 
 if __name__ == '__main__':
-
-    ft.app(target=main)
+    main()
+    # ft.app(target=main)
