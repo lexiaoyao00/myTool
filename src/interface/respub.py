@@ -10,8 +10,7 @@ class InteractionResPub():
         self._responder = Responder(respond_addr)
         self._handle_message = handler if handler else self.default_handle_message
 
-    # def set_handler(self, handler: Callable[[Any], Any]):
-    #     self._handle_message = handler
+        self.start_listening()
 
     def set_handler(self, handler: Callable[[Any], Any]):
         self._handle_message = handler

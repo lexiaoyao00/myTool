@@ -12,6 +12,9 @@ class InteractionPubSub():
         # self._handle_message : Callable[[str,Any],Any] = None
         self.on_subscribe : Callable[[str,Any],Any] = subscribe_handler if subscribe_handler else self.default_on_subscribe
 
+
+        self.start_listening()
+
     def publish(self, topic: str, data: Any, use_json: bool = True):
         self._publisher.publish(topic, data, use_json)
 

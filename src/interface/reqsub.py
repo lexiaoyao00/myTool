@@ -9,6 +9,8 @@ class InteractionReqSub():
         self._subscriber = Subscriber(subscribe_addr)
         self._on_subscribe = on_subscribe if on_subscribe is not None else self.default_on_subscribe
 
+        self.start_listening()  # 启动监听
+
     def request(self, data: Any, timeout: int = 5000, use_json: bool = True) -> Optional[Any]:
         return self._requester.request(data, timeout, use_json)
 

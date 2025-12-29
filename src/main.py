@@ -1,4 +1,4 @@
-from pages import HomePage
+from pages import Router
 import flet as ft
 from loguru import logger
 from modules import testDanbooruPage, test_laowang, testHAnime, testSSTM
@@ -22,8 +22,9 @@ def main(page:ft.Page):
     logger.add(f"{log_dir}/info.log", rotation="10 MB", retention="10 days",level="INFO")
     logger.add(f"{log_dir}/warning.log", rotation="10 MB", retention="10 days",level="WARNING")
     logger.add(f"{log_dir}/error.log", rotation="10 MB", retention="10 days",level="ERROR")
-    home_page = HomePage(page)
-    home_page.show()
+    # home_page = HomePage(page)
+    # home_page.show()
+    Router.instance().go("/home", page)
     subscribe_spider()
 
 if __name__ == '__main__':
