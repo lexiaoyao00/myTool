@@ -46,9 +46,7 @@ class SpiderManager():
         self._registry: Dict[str, Type[Crawler]] = {}
         # 保存正在运行的爬虫进程{name: Process对象}
         self._processes: Dict[str, multiprocessing.Process] = {}
-        self._respub = ResPubFactory.get(name='spider', publish_addr="tcp://*:5555", respond_addr="tcp://*:5556", handler=self.handle_request)
 
-        self._respub.start_listening()
 
     def __del__(self):
         self.stop_all()
@@ -64,7 +62,6 @@ class SpiderManager():
 
         self.run_spider(name)
 
-        self._respub.publish(TopicName.SPIDER.value, f"data:{data}")
 
         return name
 

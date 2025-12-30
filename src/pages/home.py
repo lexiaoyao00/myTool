@@ -5,9 +5,10 @@ from core.utils import TopicName,CommandType
 from .page import BasePage
 from .router import register_route,Navigator
 from interface.reqsub import InteractionReqSub,ReqSubFactory
+import requests
 
 class SpiderButton(ft.ElevatedButton):
-    def __init__(self, name: str, on_click: Callable[[ft.ElevatedButton], Any]):
+    def __init__(self, name: str, on_click: Callable[[ft.ControlEvent], Any]):
         super().__init__()
         self.text = name
         self.on_click = on_click
@@ -44,12 +45,23 @@ class SpiderTab(ft.Tab):
 class HomePage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
-        self._reqsub = ReqSubFactory.get(name='ui',request_addr="tcp://localhost:5556",subscribe_addr="tcp://localhost:5555", subscribe_handler=self.on_subscribe)
+        # self._reqsub = ReqSubFactory.get(name='ui',request_addr="tcp://localhost:5556",subscribe_addr="tcp://localhost:5555", subscribe_handler=self.on_subscribe)
         self.init()
 
     def init(self):
         self.page.title = "Home Page"
 
+        r = requests.get("http://127.0.0.1:8000/")
+        self.spiders = r.json()['spiders']
+        # lv = ft.ListView()
+        # for spider in self.spiders:
+        #     lv.controls.append(ft.Text(spider))
+        # dlg = ft.AlertDialog(
+        #     title=ft.Text("以添加的爬虫："),
+        #     content=lv,
+        #     alignment=ft.alignment.center,
+        # )
+        # self.page.open(dlg)
         self._tabs_name =[]
         self._tabs = ft.Tabs(
             selected_index=0,
@@ -89,16 +101,53 @@ class HomePage(BasePage):
     def on_subscribe(self, topic: str, data: Any):
         print(f"Received message on topic {topic}: {data}")
 
+    def start_spider(self,e:ft.ControlEvent):
+        print(e.control)
+        spider = e.control.text
+        print(spider)
+
+        r = requests.post(f"http://127.0.0.1:8000/start/{spider}")
+        print(r.json())
+        # self.page.add(ft.Text(r.text))
+        # print(e.control)
+        # text = r.json()['message']
+        # e.control.text = text if text else "爬虫已启动"
+        # # e.control.update()
+        # self.page.update()
+
+
     def build(self) -> ft.View:
+        if not isinstance(self.spiders, dict):
+            self.page.open(ft.AlertDialog(
+                title=ft.Text("提示"),
+                content=ft.Text(f"爬虫列表获取失败"),
+                alignment=ft.alignment.center,
+            ))
+            return ft.View(
+                route='/',
+                controls=[
+                    self.common_navbar("首页"),
+                    self._tabs,
+                ]
+            )
+
+
+        # for spider in self.spiders.keys():
+        #     self.add_tab(spider)
+        #     for task in self.spiders[spider]:
+        #         self.add_button(spider, task, self.start_spider)
+
+
         self.add_tab("爬虫")
-        # self.add_button("爬虫", "danbooru", lambda e:self._reqsub.request("danbooru"))
+        # self.add_button("爬虫", "danbooru", self.start_spider)
         self.add_button("爬虫", "danbooru", lambda e:self.nav.navigate('/danbooru'))
-        self.add_button("爬虫", "hanime", lambda e:self._reqsub.request("hanime"))
+        self.add_button("爬虫", "hanime", self.start_spider)
+        # self.add_button("爬虫", "test", self.start_spider)
 
 
         self.add_tab("签到")
-        self.add_button("签到", "laowang", lambda e:self._reqsub.request("laowang"))
-        self.add_button("签到", "sstm", lambda e:self._reqsub.request("sstm"))
+        self.add_button("签到", "laowang", self.start_spider)
+        self.add_button("签到", "sstm", self.start_spider)
 
 
         return ft.View(
