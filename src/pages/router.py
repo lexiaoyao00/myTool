@@ -1,5 +1,5 @@
 import flet as ft
-from .page import BasePage
+from .page import BasePage,CommonNavBar
 from typing import Type,List,Dict
 from .naviator import Navigator
 
@@ -23,6 +23,7 @@ class RouteManager:
 
     def __init__(self, page: ft.Page, nav: Navigator):
         self.page = page
+        self.nav = nav
         self.routes : Dict[str, BasePage] = {}
         for route, page_cls in self._registry.items():
             instance = page_cls(page, nav)
@@ -36,7 +37,10 @@ class RouteManager:
         else:
             self.page.views.append(ft.View(
                 route=e.route,
-                controls=[ft.Text(f"404: {e.route}")]
+                controls=[
+                    CommonNavBar("404",self.nav),
+                    ft.Text(f"404: {e.route}")
+                ]
             ))
         self.page.update()
 

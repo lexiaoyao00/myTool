@@ -124,6 +124,10 @@ class HomePage(BasePage):
         # # e.control.update()
         # self.page.update()
 
+    def navgiate(self, e:ft.ControlEvent):
+        route = f"/{e.control.text}"
+        self.nav.navigate(route)
+
 
     def build(self) -> ft.View:
         if not isinstance(self.spiders, dict):
@@ -143,10 +147,17 @@ class HomePage(BasePage):
         if self.has_build:
             return self._view
 
-        for spider in self.spiders.keys():
-            self.add_tab(spider)
-            for task in self.spiders[spider]:
-                self.add_button(spider, task, self.start_spider)
+
+        print(self.spiders)
+        for spider_tag in self.spiders.keys():
+            self.add_tab(spider_tag)
+            if spider_tag == "爬虫":
+                for task in self.spiders[spider_tag]:
+                    print(f" 添加爬虫{task}")
+                    self.add_button(spider_tag, task, self.navgiate)
+            else:
+                for task in self.spiders[spider_tag]:
+                    self.add_button(spider_tag, task, self.start_spider)
 
 
         # self.add_tab("爬虫")

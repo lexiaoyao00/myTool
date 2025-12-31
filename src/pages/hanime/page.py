@@ -4,7 +4,7 @@ from ..router import register_route,Navigator
 
 
 @register_route("/hanime")
-class DanbooruPage(BasePage):
+class HanimePage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
         self.page.title = "Hanime"
