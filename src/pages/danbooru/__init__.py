@@ -1,4 +1,4 @@
-from .preview import DanbooruPage
+from .page import DanbooruPage
 
 
 

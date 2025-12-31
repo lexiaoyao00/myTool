@@ -5,15 +5,16 @@ from abc import ABC, abstractmethod
 from loguru import logger
 from collections import deque
 
-from .router import Navigator
+from .naviator import Navigator
 
 
 
 # 基类
-class BasePage:
+class BasePage(ABC):
     def __init__(self, page: ft.Page, nav: Navigator):
         self.page = page
         self.nav = nav
+        self._route = '/'
 
     def common_navbar(self, title: str):
         return ft.AppBar(
@@ -24,6 +25,18 @@ class BasePage:
             ]
         )
 
+    @property
+    def route(self) -> str:
+        """页面路由路径"""
+        return self._route
+
+    @route.setter
+    def route(self, value: str):
+        if not value.startswith('/'):
+            value = '/' + value
+        self._route = value
+
+    @abstractmethod
     def build(self) -> ft.View:
         raise NotImplementedError
 

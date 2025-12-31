@@ -24,7 +24,7 @@ class DanbooruPage(BasePage):
 
     def build(self) -> ft.View:
         return ft.View(
-            route='/danbooru',
+            route=self.route,
             controls=[
                 self.common_navbar("danbooru"),
                 self._column,

@@ -9,15 +9,15 @@ spider_manager = SpiderManager()
 
 @app.get("/")
 async def init():
-    # global spider_manager
-    # spider_manager.register("danbooru", DanbooruScraper)
-    # spider_manager.register("laowang", Laowang)
-    # spider_manager.register("hanime", HAnimeScraper)
-    # spider_manager.register("sstm", SSTM)
+    global spider_manager
+    spider_manager.register("danbooru", DanbooruScraper)
+    spider_manager.register("laowang", Laowang)
+    spider_manager.register("hanime", HAnimeScraper)
+    spider_manager.register("sstm", SSTM)
 
     spdiers = {
-        'scraper': ["danbooru", "hanime"],
-        'login': ["laowang", "sstm"]
+        '爬虫': ["danbooru", "hanime"],
+        '签到': ["laowang", "sstm"]
     }
 
     return {"status": "OK", "spiders": spdiers}
@@ -29,17 +29,12 @@ def start(spider_name: str, params: dict = None):
     params = params or {}
     try:
         spider_manager.run_spider(spider_name, **params)
-        return {"message": f"Started {spider_name}"}
+        return {"status": "OK" ,"message": f"Started {spider_name}"}
     except Exception as e:
-        return {"message": f"Failed to start {spider_name}: {str(e)}"}
+        return {"status": "ERROR","message": f"Failed to start {spider_name}: {str(e)}"}
 
 
 def run_api():
-    global spider_manager
-    spider_manager.register("danbooru", DanbooruScraper)
-    spider_manager.register("laowang", Laowang)
-    spider_manager.register("hanime", HAnimeScraper)
-    spider_manager.register("sstm", SSTM)
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
 

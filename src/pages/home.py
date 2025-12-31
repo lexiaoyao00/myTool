@@ -46,13 +46,16 @@ class HomePage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
         # self._reqsub = ReqSubFactory.get(name='ui',request_addr="tcp://localhost:5556",subscribe_addr="tcp://localhost:5555", subscribe_handler=self.on_subscribe)
+        self.spiders = {}
+        self.has_build = False
         self.init()
 
     def init(self):
         self.page.title = "Home Page"
 
-        r = requests.get("http://127.0.0.1:8000/")
-        self.spiders = r.json()['spiders']
+        if not self.spiders:
+            r = requests.get("http://127.0.0.1:8000/")
+            self.spiders = r.json()['spiders']
         # lv = ft.ListView()
         # for spider in self.spiders:
         #     lv.controls.append(ft.Text(spider))
@@ -68,6 +71,12 @@ class HomePage(BasePage):
             animation_duration=300,
             expand=True,
         )
+        self._view = ft.View(route=self.route,
+                        controls=[
+                            self.common_navbar("首页"),
+                            self._tabs
+                        ]
+                    )
 
     def add_tab(self, tab_name:str):
         if tab_name in self._tabs_name:
@@ -124,36 +133,32 @@ class HomePage(BasePage):
                 alignment=ft.alignment.center,
             ))
             return ft.View(
-                route='/',
+                route=self.route,
                 controls=[
                     self.common_navbar("首页"),
                     self._tabs,
                 ]
             )
 
+        if self.has_build:
+            return self._view
 
-        # for spider in self.spiders.keys():
-        #     self.add_tab(spider)
-        #     for task in self.spiders[spider]:
-        #         self.add_button(spider, task, self.start_spider)
-
-
-        self.add_tab("爬虫")
-        # self.add_button("爬虫", "danbooru", self.start_spider)
-        self.add_button("爬虫", "danbooru", lambda e:self.nav.navigate('/danbooru'))
-        self.add_button("爬虫", "hanime", self.start_spider)
-        # self.add_button("爬虫", "test", self.start_spider)
+        for spider in self.spiders.keys():
+            self.add_tab(spider)
+            for task in self.spiders[spider]:
+                self.add_button(spider, task, self.start_spider)
 
 
-        self.add_tab("签到")
-        self.add_button("签到", "laowang", self.start_spider)
-        self.add_button("签到", "sstm", self.start_spider)
+        # self.add_tab("爬虫")
+        # # self.add_button("爬虫", "danbooru", self.start_spider)
+        # self.add_button("爬虫", "danbooru", lambda e:self.nav.navigate('/danbooru'))
+        # self.add_button("爬虫", "hanime", self.start_spider)
+        # # self.add_button("爬虫", "test", self.start_spider)
 
 
-        return ft.View(
-            route='/',
-            controls=[
-                self.common_navbar("首页"),
-                self._tabs,
-            ]
-        )
+        # self.add_tab("签到")
+        # self.add_button("签到", "laowang", self.start_spider)
+        # self.add_button("签到", "sstm", self.start_spider)
+
+        self.has_build = True
+        return self._view

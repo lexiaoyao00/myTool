@@ -20,19 +20,8 @@ class MyApp:
 
         nav = Navigator(page)
 
-        def route_change(e: ft.RouteChangeEvent):
-            page.views.clear()
-            PageCls = RouteManager.get(e.route)
-            if PageCls:
-                page.views.append(PageCls(page, nav).build())
-            else:
-                page.views.append(ft.View(
-                    route=e.route,
-                    controls=[ft.Text(f"404: {e.route}")]
-                ))
-            page.update()
-
-        page.on_route_change = route_change
+        self.rm = RouteManager(page, nav)
+        page.on_route_change = self.rm.route_change
         page.go("/")   # 进入首页
         nav.current = "/"  # 初始化当前路由
 
