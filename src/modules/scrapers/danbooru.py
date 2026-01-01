@@ -188,8 +188,8 @@ class DanbooruPage:
 
 
 class DanbooruScraper(Crawler):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.spider = Spider(
             headers = {
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -213,15 +213,23 @@ class DanbooruScraper(Crawler):
     async def run(self, scrape_type:str = None, **kwargs):
         logger.info(f"DanbooruScraper run: {scrape_type}")
         if scrape_type is None:
-            return await self.test(**kwargs)
+            await self.test(**kwargs)
 
-        info = scrape_type.split('_')
-        if info[0] == 'pre':
-            return await self.scrapeHotPost(**kwargs)
-        elif info[0] == 'detail':
-            return await self.scrapePostInfo(**kwargs)
+        if scrape_type == 'page':
+            start_page = kwargs.get('start_page') or 1
+            scrape_page_count = kwargs.get('scrape_page_count') or 1
+            post_preimg_dict = await self.scrapeHotPost(start_page,scrape_page_count)
+            self.queue.put(post_preimg_dict)
+        elif scrape_type == 'post':
+            url = kwargs.get('url')
+            if url is None:
+                self.queue.put({"status": "error", "message": "Post url is None"})
+                return
+
+            item_info = self.scrapePostInfo(**kwargs)
+            self.queue.put(item_info.model_dump())
         else:
-            return await self.test(**kwargs)
+            await self.test(**kwargs)
 
 
     async def test(self):
@@ -232,7 +240,9 @@ class DanbooruScraper(Crawler):
         # posts = danbooru_page.getPost(url=page_url)
         posts = await self.scrapePosts(start_page=1,scrape_page_count=1)
         # print(posts)
-        print(posts.values())
+        if posts is None:
+            return
+        # print(posts.values())
         # danbooru_post = DanbooruPost(spider=self.spider)
         post_info_list:List[ItemPostInfo] = await self.scrapeInfoFromPosts(urls=posts.keys())
         # print(post_info_list)
@@ -240,7 +250,8 @@ class DanbooruScraper(Crawler):
         post_list.save_to_json('./storage/data/danbooru/test.json')
 
         file_url_list = [post.file_url for post in post_info_list]
-        print(file_url_list)
+        # print(file_url_list)
+        print("===========222222222===============  ")
 
     async def scrapePosts(self, start_page:int =  1, scrape_page_count:int = 1, params:ItemPostsParams = None ):
         if params is None:

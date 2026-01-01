@@ -1,7 +1,9 @@
 import flet as ft
 from ..page import BasePage
 from ..router import register_route,Navigator
+import requests
 
+from curl_cffi import AsyncSession
 
 @register_route("/danbooru")
 class DanbooruPage(BasePage):
@@ -17,9 +19,33 @@ class DanbooruPage(BasePage):
             ],
         )
 
-    def test(self,e:ft.ControlEvent):
+    async def test(self,e:ft.ControlEvent):
         # e.control.disabled = True
-        self.nav.navigate('/')
+        # self.nav.navigate('/')
+        r = requests.post(f"http://127.0.0.1:8000/start/danbooru", json={'scrape_type':'page'})
+        print(r.json())
+        res_json = r.json()
+        if res_json['status'] == 'OK':
+            # self.nav.navigate('/danbooru/preview')
+            # e.control.disabled = True
+            print(res_json['task_id'])
+            # self.page.update()
+            await self.listen_ws(res_json['task_id'])
+
+
+    async def listen_ws(self,task_id):
+        async with AsyncSession() as session:
+            ws = await session.ws_connect(f"ws://127.0.0.1:8000/ws/{task_id}")
+            await ws.flush()
+            async for msg in ws:
+                print("=========ws recv=========")
+                print(msg.decode("utf-8"))
+
+            # data = await ws.recv_json()
+            # print("=========ws recv=========")
+            # print(data)
+
+
 
 
     def build(self) -> ft.View:

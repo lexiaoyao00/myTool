@@ -8,8 +8,8 @@ import time
 from ..crawler import Crawler
 
 class SSTM(Crawler):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.init()
 
     async def run(self,acount:str = '2950848462@qq.com', password:str = 'xc1290435868+'):

@@ -215,8 +215,8 @@ class HAnimeSearch:
 
 
 class HAnimeScraper(Crawler):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.session = Session()
         self.spider = Spider(
             headers = {

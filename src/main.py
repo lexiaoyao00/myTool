@@ -10,6 +10,13 @@ from pages import Navigator, RouteManager
 from multiprocessing import Process
 import subprocess,sys
 
+log_dir = 'storage/logs'
+logger.remove()
+logger.add(f"{log_dir}/debug.log", enqueue=True, rotation="10 MB", retention="10 days",level="DEBUG")
+logger.add(f"{log_dir}/info.log", enqueue=True, rotation="10 MB", retention="10 days",level="INFO")
+logger.add(f"{log_dir}/warning.log", enqueue=True,rotation="10 MB", retention="10 days",level="WARNING")
+logger.add(f"{log_dir}/error.log", enqueue=True,rotation="10 MB", retention="10 days",level="ERROR")
+
 # 应用
 class MyApp:
     def main(self, page: ft.Page):
@@ -41,6 +48,7 @@ def subscribe_spider():
 
 
 def main():
+
     from api.app import run_api
 
     p = Process(target=run_api)
@@ -50,12 +58,6 @@ def main():
 
     time.sleep(1)
     # ConfigManager('/config/spider.toml')
-    # log_dir = 'storage/logs'
-    # logger.remove()
-    # logger.add(f"{log_dir}/debug.log", rotation="10 MB", retention="10 days",level="DEBUG")
-    # logger.add(f"{log_dir}/info.log", rotation="10 MB", retention="10 days",level="INFO")
-    # logger.add(f"{log_dir}/warning.log", rotation="10 MB", retention="10 days",level="WARNING")
-    # logger.add(f"{log_dir}/error.log", rotation="10 MB", retention="10 days",level="ERROR")
     # # home_page = HomePage(page)
     # # home_page.show()
     # # Router.instance().go("/home", page)

@@ -1,6 +1,7 @@
 import flet as ft
 from ..page import BasePage
 from ..router import register_route,Navigator
+import requests
 
 
 @register_route("/hanime")
@@ -19,7 +20,9 @@ class HanimePage(BasePage):
 
     def test(self,e:ft.ControlEvent):
         # e.control.disabled = True
-        self.nav.navigate('/')
+        # self.nav.navigate('/')
+        r = requests.post(f"http://127.0.0.1:8000/start/hanime", params={'scrape_type':'test'})
+
 
 
     def build(self) -> ft.View:

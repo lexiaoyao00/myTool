@@ -153,7 +153,6 @@ class HomePage(BasePage):
             self.add_tab(spider_tag)
             if spider_tag == "爬虫":
                 for task in self.spiders[spider_tag]:
-                    print(f" 添加爬虫{task}")
                     self.add_button(spider_tag, task, self.navgiate)
             else:
                 for task in self.spiders[spider_tag]:

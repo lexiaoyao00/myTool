@@ -7,6 +7,7 @@ from interface import Responder, Publisher
 from abc import ABC, abstractmethod
 from core.utils import TopicName
 from modules import Crawler
+import uuid
 
 from interface.respub import ResPubFactory,InteractionResPub
 
@@ -46,6 +47,7 @@ class SpiderManager():
         self._registry: Dict[str, Type[Crawler]] = {}
         # 保存正在运行的爬虫进程{name: Process对象}
         self._processes: Dict[str, multiprocessing.Process] = {}
+        self.task_queues = {}
 
 
     def __del__(self):
@@ -107,11 +109,15 @@ class SpiderManager():
             logger.warning(f"爬虫 {name} 已在运行")
             return
 
+        q = multiprocessing.Queue()
+        task_id = str(uuid.uuid4())
+        self.task_queues[task_id] = q
         target = self._registry[name]
-        p = multiprocessing.Process(target=self._run, args=(target, args, kwargs),daemon=True)
+        p = multiprocessing.Process(target=self._run, args=(target, q, args, kwargs),daemon=True)
         p.start()
         self._processes[name] = p
         logger.info(f"爬虫 {name} 已启动 PID={p.pid}")
+        return task_id
 
     def stop(self, name: str):
         """停止单个爬虫进程"""
@@ -133,13 +139,15 @@ class SpiderManager():
         return p.is_alive() if p else False
 
     @staticmethod
-    def _run(target: Type[Crawler], args, kwargs):
+    def _run(target: Type[Crawler],q:multiprocessing.Queue, args, kwargs):
         """子进程运行爬虫"""
         import os
         logger.info(f"[子进程] PID={os.getpid()} 启动")
-        instance = target()
+        instance = target(queue=q)
+        q.put({"status":"start"})
         asyncio.run(instance.run(*args, **kwargs))
         logger.info(f"[子进程] PID={os.getpid()} 任务完成")
+        q.put({"status":"finished"})
 
 
 # class SpiderManagerFunc(InteractionResPub):
