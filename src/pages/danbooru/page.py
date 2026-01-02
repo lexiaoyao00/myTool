@@ -1,21 +1,29 @@
 import flet as ft
 from ..page import BasePage
 from ..router import register_route,Navigator
+from .detaile import DanbooruDetailPage
 import requests
-from typing import List,Dict
+from typing import List,Dict,Callable
 from loguru import logger
 import json
+from functools import partial
 
 from curl_cffi import AsyncSession
 from core.config import ConfigManager , Config
 
 
-class PreviewImage(ft.Image):
-    def __init__(self, src:str):
-        super().__init__(src=src)
-        self.width = 180
-        self.height = 180
-        self.fit = ft.ImageFit.NONE
+class PreviewImage(ft.GestureDetector):
+    def __init__(self, src:str, on_click:Callable=None):
+        super().__init__(on_tap=on_click)
+        self.content = ft.Image(src=src,
+                             width=180,
+                             height=180,
+                             fit=ft.ImageFit.NONE)
+
+        self.data = src
+        self.mouse_cursor = ft.MouseCursor.CLICK
+
+
 # 预览画廊
 class PreviewGallery(ft.GridView):
     def __init__(self, runs_count:int = 5):
@@ -27,9 +35,9 @@ class PreviewGallery(ft.GridView):
         self.max_extent = 180
 
 
-    def extent(self, imgs:List[str]):
-        self.controls = [PreviewImage(src=img) for img in imgs]
-        # self.update()
+    def extend(self, imgs:List[PreviewImage]):
+        self.controls.extend(imgs)
+        self.update()
 
     def clean(self):
         return super().clean()
@@ -106,6 +114,19 @@ class DanbooruPage(BasePage):
             await self.listen_ws(res_json['task_id'])
 
 
+    async def _on_preview_img_click(self, e, post_url:str):
+        # print(e.control.data)
+        # print(f'图片被点击了，post:{post_url}')
+        r = requests.post(f"http://127.0.0.1:8000/start/danbooru", json={
+            'scrape_type':'post',
+            'url':post_url,
+            })
+        res_json = r.json()
+        if res_json['status'] == 'OK':
+            logger.info(f'start danbooru task success, task_id:{res_json["task_id"]}')
+            await self.listen_ws(res_json['task_id'])
+            self.nav.navigate('/danbooru/post')
+
     async def listen_ws(self,task_id):
         async with AsyncSession() as session:
             ws = await session.ws_connect(f"ws://127.0.0.1:8000/ws/{task_id}")
@@ -120,11 +141,24 @@ class DanbooruPage(BasePage):
                     msg:Dict = await ws.recv_json()
                     status:str|None = msg.get('status')
 
-                    if status is None:
+                    if status == "success":
                         print("=========ws recv=========")
-                        print(msg)
-                        self._preview_gallery.extent(list(msg.values()))
-                        self.page.update()
+                        # print(msg)
+                        scrape_type:str = msg.get('type')
+                        data:Dict = msg.get('data')
+                        if scrape_type == 'page':
+                            self._preview_gallery.extend([PreviewImage(src=pre_img, on_click=partial(self._on_preview_img_click,post_url=post)) for post,pre_img in data.items()])
+                            self.page.update()
+                        elif scrape_type == 'post':
+                            print(type(data))
+                            print(data)
+                            # self.page.open(DanbooruDetailPage(item_info=data))
+                            self.page.session.set('danbooru_post', data)
+                            break
+                            # self.page.client_storage.set('danbooru_post', data)
+                            # self.page.update()
+
+
 
                     if status == 'finished':
                         print("=========ws recv finished=========")

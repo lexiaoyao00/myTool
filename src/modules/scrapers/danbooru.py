@@ -219,18 +219,38 @@ class DanbooruScraper(Crawler):
 
         if scrape_type == 'page':
             url = kwargs.get('url')
+            if url is None:
+                self.queue.put({"status": "error", "message": "Page url is None"})
+                return
             start_page = kwargs.get('start_page') or 1
             scrape_page_count = kwargs.get('scrape_page_count') or 1
             post_preimg_dict = await self.scrapePosts(url,start_page,scrape_page_count)
-            self.queue.put(post_preimg_dict)
+            res_dit = {
+                "status": "success",
+                "type": "page",
+                "data": post_preimg_dict
+            }
+            self.queue.put(res_dit)
         elif scrape_type == 'post':
             url = kwargs.get('url')
             if url is None:
                 self.queue.put({"status": "error", "message": "Post url is None"})
                 return
 
-            item_info = self.scrapePostInfo(**kwargs)
-            self.queue.put(item_info.model_dump())
+            item_info = self.scrapePostInfo(url)
+            if item_info is not None:
+                res_dit = {
+                    "status": "success",
+                    "type": "post",
+                    "data": item_info.model_dump()
+                }
+                self.queue.put(res_dit)
+            else:
+                res_dit = {
+                    "status": "failed",
+                    "type": "post",
+                }
+                self.queue.put(res_dit)
         else:
             await self.test(**kwargs)
 

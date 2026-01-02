@@ -4,7 +4,7 @@ from .page import BasePage
 from .naviator import Navigator
 from .router import register_route,RouteManager
 
-from .danbooru import DanbooruPage
+from .danbooru import DanbooruPage,DanbooruDetailPage
 from .hanime import HanimePage
 
 
@@ -15,5 +15,6 @@ __all__ = [
     "Navigator",
     "HomePage",
     "DanbooruPage",
+    "DanbooruDetailPage",
     "HanimePage",
 ]

@@ -24,7 +24,7 @@ def main(page: ft.Page):
                 src=f"https://picsum.photos/150/150?{i}",
                 fit=ft.ImageFit.NONE,
                 repeat=ft.ImageRepeat.NO_REPEAT,
-                border_radius=ft.border_radius.all(10),
+                border_radius=ft.border_radius.all(10)
             )
         )
     page.update()
