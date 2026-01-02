@@ -53,6 +53,7 @@ class DanbooruPage(BasePage):
         self.init()
 
     def init(self):
+        self._cache_post_info = {}
         config_manager = ConfigManager()
         self._config : Config = config_manager.getConfig('config/spider.toml')['danbooru']
 
@@ -111,12 +112,18 @@ class DanbooruPage(BasePage):
             # e.control.disabled = True
             # print(res_json['task_id'])
             # self.page.update()
-            await self.listen_ws(res_json['task_id'])
+            await self.listen_ws_page(res_json['task_id'])
 
 
     async def _on_preview_img_click(self, e, post_url:str):
-        # print(e.control.data)
-        # print(f'图片被点击了，post:{post_url}')
+        if post_url in self._cache_post_info:
+            post_info = self._cache_post_info[post_url]
+            self.page.session.set('danbooru_post', post_info)
+            self.nav.navigate('/danbooru/post')
+
+            return
+
+
         r = requests.post(f"http://127.0.0.1:8000/start/danbooru", json={
             'scrape_type':'post',
             'url':post_url,
@@ -124,10 +131,53 @@ class DanbooruPage(BasePage):
         res_json = r.json()
         if res_json['status'] == 'OK':
             logger.info(f'start danbooru task success, task_id:{res_json["task_id"]}')
-            await self.listen_ws(res_json['task_id'])
+            alert = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("提示"),
+                content=ft.Text("正在爬取信息，请稍后..."),
+            )
+            self.page.open(alert)
+            await self.listen_ws_post(res_json['task_id'],post_url)
             self.nav.navigate('/danbooru/post')
 
-    async def listen_ws(self,task_id):
+    async def listen_ws_page(self,task_id):
+        async with AsyncSession() as session:
+            ws = await session.ws_connect(f"ws://127.0.0.1:8000/ws/{task_id}")
+
+            try:
+                while True:
+                    msg:Dict = await ws.recv_json()
+                    status:str|None = msg.get('status')
+
+                    if status == "success":
+                        print("=========ws recv=========")
+                        # print(msg)
+                        scrape_type:str = msg.get('type')
+                        data:Dict = msg.get('data')
+                        if scrape_type == 'page':
+                            self._preview_gallery.extend([PreviewImage(src=pre_img, on_click=partial(self._on_preview_img_click,post_url=post)) for post,pre_img in data.items()])
+                            self.page.update()
+
+                    if status == 'finished':
+                        print("=========ws recv finished=========")
+                        break
+
+                    if msg is None:
+                        print("链接关闭")
+                        break
+
+                        # self._preview_gallery.extent(data['data'])
+                        # self.page.update()
+            except Exception as e:
+                # logger.error(f'ws 接收消息时发生错误:{e}')
+                print(f'ws 接收消息时发生错误:{e}')
+            # data = await ws.recv_json()
+            # print("=========ws recv=========")
+            # print(data)
+            await ws.close()
+
+
+    async def listen_ws_post(self,task_id:str,post_url:str):
         async with AsyncSession() as session:
             ws = await session.ws_connect(f"ws://127.0.0.1:8000/ws/{task_id}")
             # await ws.flush()
@@ -146,13 +196,11 @@ class DanbooruPage(BasePage):
                         # print(msg)
                         scrape_type:str = msg.get('type')
                         data:Dict = msg.get('data')
-                        if scrape_type == 'page':
-                            self._preview_gallery.extend([PreviewImage(src=pre_img, on_click=partial(self._on_preview_img_click,post_url=post)) for post,pre_img in data.items()])
-                            self.page.update()
-                        elif scrape_type == 'post':
-                            print(type(data))
+                        if scrape_type == 'post':
+                            # print(type(data))
                             print(data)
                             # self.page.open(DanbooruDetailPage(item_info=data))
+                            self._cache_post_info[post_url] = data
                             self.page.session.set('danbooru_post', data)
                             break
                             # self.page.client_storage.set('danbooru_post', data)
@@ -177,7 +225,6 @@ class DanbooruPage(BasePage):
             # print("=========ws recv=========")
             # print(data)
             await ws.close()
-
 
 
 

@@ -251,6 +251,15 @@ class DanbooruScraper(Crawler):
                     "type": "post",
                 }
                 self.queue.put(res_dit)
+        elif scrape_type == 'download':
+            iteminfo_dict = kwargs.get('iteminfo')
+            if iteminfo_dict is None:
+                self.queue.put({"status": "error", "message": "Iteminfo is None"})
+                return
+
+            item_info = ItemPostInfo(**iteminfo_dict)
+            self.downloadPost(item_info)
+
         else:
             await self.test(**kwargs)
 
