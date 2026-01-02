@@ -27,11 +27,12 @@ async def init():
 @app.post("/start/{spider_name}")
 def start(spider_name: str, params: dict = None):
     global spider_manager
-    # print(f'api 接收到的 spider ： {spider_name}')
     params = params or {}
     try:
         task_id = spider_manager.run_spider(spider_name, **params)
-        return {"status": "OK" ,"task_id": task_id}
+        if task_id:
+            return {"status": "OK", "task_id": task_id}
+        return {"status": "NG", "message": f"Failed to start {spider_name}"}
     except Exception as e:
         return {"status": "ERROR","message": f"Failed to start {spider_name}: {str(e)}"}
 
@@ -42,7 +43,7 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
     await ws.accept()
     q = spider_manager.task_queues.get(task_id)
     if q is None:
-        print(f"任务 {task_id} 不存在")
+        logger.warning(f"任务 {task_id} 不存在")
         await ws.send_text("任务不存在或已结束")
         await ws.close()
         return
@@ -51,18 +52,19 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
         while True:
             while not q.empty():
                 msg = q.get()
-                print(f"api 接收到的消息：{msg}")
                 await ws.send_json(msg)
                 if msg.get("status") == "finished":
                     # 任务结束，清理队列
-                    print(f"任务 {task_id} 结束")
+                    logger.info(f"任务 {task_id} 结束")
                     spider_manager.task_queues.pop(task_id, None)
-                    await ws.close()
+                    # await ws.close()
                     return
+
+
             await asyncio.sleep(0.1)
     except Exception:
         # 连接中断也可以清理
-        print(f"任务 {task_id} 连接中断")
+        logger.error(f"任务 {task_id} 连接中断")
         if task_id in spider_manager.task_queues:
             spider_manager.task_queues.pop(task_id, None)
 

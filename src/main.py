@@ -8,7 +8,6 @@ from modules import SpiderManager
 
 from pages import Navigator, RouteManager
 from multiprocessing import Process
-import subprocess,sys
 
 log_dir = 'storage/logs'
 logger.remove()
@@ -21,9 +20,7 @@ logger.add(f"{log_dir}/error.log", enqueue=True,rotation="10 MB", retention="10 
 class MyApp:
     def main(self, page: ft.Page):
         page.title = "my app"
-        page.scroll = True
-        # page.window.width = 400
-        # page.window.height = 300
+        page.scroll = ft.ScrollMode.AUTO
 
         nav = Navigator(page)
 

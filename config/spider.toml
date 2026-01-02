@@ -2,6 +2,7 @@
 [danbooru]
 referer = "https://danbooru.donmai.us"
 hot = "https://danbooru.donmai.us/posts?tags=order%3Arank+-censored"
+popular = "https://danbooru.donmai.us/explore/posts/popular"
 
 [hanime]
 referer = "https://hanime1.me/"

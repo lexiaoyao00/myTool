@@ -2,7 +2,7 @@ import multiprocessing
 from typing import Callable, Dict, Any, Union, Type
 import asyncio
 from loguru import logger
-from modules import Crawler
+from .crawler import Crawler
 import uuid
 import time
 import threading
@@ -87,11 +87,11 @@ class SpiderManager():
         """
         if name not in self._registry:
             logger.error(f"爬虫 {name} 未注册")
-            return
+            return None
 
         if name in self._processes and self._processes[name].is_alive():
             logger.warning(f"爬虫 {name} 已在运行")
-            return
+            return None
 
         q = multiprocessing.Queue()
         task_id = str(uuid.uuid4())

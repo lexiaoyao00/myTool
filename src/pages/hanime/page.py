@@ -11,6 +11,7 @@ class HanimePage(BasePage):
         self.page.title = "Hanime"
         self._column = ft.Column(
             alignment=ft.MainAxisAlignment.CENTER,
+            expand=True,
             controls = [
                 ft.Text(value="Hanime", size=30, weight=ft.FontWeight.BOLD),
                 ft.Text(value="This is a preview of the Hanime page", size=20),

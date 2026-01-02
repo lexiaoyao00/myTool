@@ -132,6 +132,7 @@ class DanbooruPage:
         self.max_page = 0           # 0代表未知最大页数
 
     def _parsePageInfo(self,text:str):
+        """获取页面最大页数和当前页数"""
         selector = Selector(text=text)
         current_page = selector.css('.paginator-current::text').get()
         max_page = selector.xpath('//*[@class="paginator-next"]/preceding-sibling::*[1]/text()').get()
@@ -140,6 +141,7 @@ class DanbooruPage:
         self.max_page = int(max_page) if max_page is not None else 0
 
     def _parsePostUrlWithPreImg(self,text:str):
+        """解析页面并返回帖子链接 -> 预览图片链接的字典"""
         selector = Selector(text=text)
         post_hrefs = selector.css("div.post-preview-container > a::attr(href)").getall()
         img_urls = selector.css("div.post-preview-container picture img::attr(src)").getall()
@@ -175,7 +177,7 @@ class DanbooruPage:
         self._parsePageInfo(res.text)
 
         end_page = self.current_page + page_count - 1
-        if end_page > self.max_page:
+        if self.max_page > 0 and end_page > self.max_page:
             end_page = self.max_page
 
         base_url = URL(url)
@@ -216,9 +218,10 @@ class DanbooruScraper(Crawler):
             await self.test(**kwargs)
 
         if scrape_type == 'page':
+            url = kwargs.get('url')
             start_page = kwargs.get('start_page') or 1
             scrape_page_count = kwargs.get('scrape_page_count') or 1
-            post_preimg_dict = await self.scrapeHotPost(start_page,scrape_page_count)
+            post_preimg_dict = await self.scrapePosts(url,start_page,scrape_page_count)
             self.queue.put(post_preimg_dict)
         elif scrape_type == 'post':
             url = kwargs.get('url')
@@ -238,7 +241,7 @@ class DanbooruScraper(Crawler):
         print("===========11111111===============")
         page_url = 'https://danbooru.donmai.us/posts?tags=order%3Arank+-censored'
         # posts = danbooru_page.getPost(url=page_url)
-        posts = await self.scrapePosts(start_page=1,scrape_page_count=1)
+        posts = await self.scrapePosts(url=page_url, start_page=1,scrape_page_count=1)
         # print(posts)
         if posts is None:
             return
@@ -247,13 +250,13 @@ class DanbooruScraper(Crawler):
         post_info_list:List[ItemPostInfo] = await self.scrapeInfoFromPosts(urls=posts.keys())
         # print(post_info_list)
         post_list:ItemPostList = ItemPostList(posts=post_info_list, start_url=page_url,start_page=1, page_count=2)
-        post_list.save_to_json('./storage/data/danbooru/test.json')
+        post_list.save_to_json(f'./storage/data/danbooru/test.json')
 
         file_url_list = [post.file_url for post in post_info_list]
         # print(file_url_list)
         print("===========222222222===============  ")
 
-    async def scrapePosts(self, start_page:int =  1, scrape_page_count:int = 1, params:ItemPostsParams = None ):
+    async def scrapePostsWithParams(self, start_page:int =  1, scrape_page_count:int = 1, params:ItemPostsParams = None ):
         if params is None:
             logger.info('参数为空，默认抓取热门')
             return await self.scrapeHotPost(start_page,scrape_page_count)
@@ -261,6 +264,14 @@ class DanbooruScraper(Crawler):
         danbooru_page = DanbooruPage(self.spider)
         url = URL('https://danbooru.donmai.us/posts')
         url = url.with_query(**params.model_dump(exclude_unset=True))
+        return await danbooru_page.getPostsWithPreImgStartPage(str(url),scrape_page_count)
+
+    async def scrapePosts(self, url:str = None, start_page:int =  1, scrape_page_count:int = 1):
+        if url is None:
+            logger.info('参数为空，默认抓取热门')
+            return await self.scrapeHotPost(start_page,scrape_page_count)
+
+        danbooru_page = DanbooruPage(self.spider)
         return await danbooru_page.getPostsWithPreImgStartPage(str(url),scrape_page_count)
 
     async def scrapeHotPost(self, start_page:int =  1, scrape_page_count:int = 1):

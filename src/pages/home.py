@@ -42,7 +42,6 @@ class SpiderTab(ft.Tab):
 class HomePage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
-        # self._reqsub = ReqSubFactory.get(name='ui',request_addr="tcp://localhost:5556",subscribe_addr="tcp://localhost:5555", subscribe_handler=self.on_subscribe)
         self.spiders = {}
         self.has_build = False
         self.init()
@@ -104,22 +103,12 @@ class HomePage(BasePage):
         self.page.update()
 
 
-    def on_subscribe(self, topic: str, data: Any):
-        print(f"Received message on topic {topic}: {data}")
-
     def start_spider(self,e:ft.ControlEvent):
-        print(e.control)
+        # print(e.control)
         spider = e.control.text
-        print(spider)
 
         r = requests.post(f"http://127.0.0.1:8000/start/{spider}")
-        print(r.json())
-        # self.page.add(ft.Text(r.text))
-        # print(e.control)
-        # text = r.json()['message']
-        # e.control.text = text if text else "爬虫已启动"
-        # # e.control.update()
-        # self.page.update()
+
 
     def navgiate(self, e:ft.ControlEvent):
         route = f"/{e.control.text}"
@@ -145,7 +134,7 @@ class HomePage(BasePage):
             return self._view
 
 
-        print(self.spiders)
+        # print(self.spiders)
         for spider_tag in self.spiders.keys():
             self.add_tab(spider_tag)
             if spider_tag == "爬虫":
