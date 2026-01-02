@@ -15,7 +15,6 @@ dependencies = [
   "loguru>=0.7.3",
   "parsel>=1.10.0",
   "playwright>=1.57.0",
-  "pyzmq>=27.1.0",
   "yarl>=1.22.0",
 ]
 

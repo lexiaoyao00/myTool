@@ -1,15 +1,11 @@
 import multiprocessing
 from typing import Callable, Dict, Any, Union, Type
 import asyncio
-import inspect
 from loguru import logger
-from interface import Responder, Publisher
-from abc import ABC, abstractmethod
-from core.utils import TopicName
 from modules import Crawler
 import uuid
-
-from interface.respub import ResPubFactory,InteractionResPub
+import time
+import threading
 
 # class InteractionResPub(ABC):
 #     """交互响应发布者"""
@@ -49,23 +45,11 @@ class SpiderManager():
         self._processes: Dict[str, multiprocessing.Process] = {}
         self.task_queues = {}
 
+        threading.Thread(target=self._cleanup_task_queues, daemon=True).start()
+
 
     def __del__(self):
         self.stop_all()
-
-    def handle_request(self, data:str):
-        print(f"Received response message: {data}")
-
-        data_info = data.split(" ", 1)
-        name = data_info[0]
-        message = data_info[1] if len(data_info) > 1 else ""
-
-        print(f'==== name: {name} message: {message} ====')
-
-        self.run_spider(name)
-
-
-        return name
 
     # ------- 注册相关 -------
     def register(self, name: str, target: Type[Crawler]):
@@ -118,6 +102,15 @@ class SpiderManager():
         self._processes[name] = p
         logger.info(f"爬虫 {name} 已启动 PID={p.pid}")
         return task_id
+
+    def _cleanup_task_queues(self):
+        while True:
+            time.sleep(60)  # 每分钟检查
+            for task_id in list(self.task_queues.keys()):
+                q = self.task_queues[task_id]
+                # 这里可以加判断队列是否长期无数据，或者任务超时
+                if q.empty():
+                    del self.task_queues[task_id]
 
     def stop(self, name: str):
         """停止单个爬虫进程"""

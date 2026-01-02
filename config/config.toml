@@ -1,7 +1,1 @@
-[pubsub.addr]
-ui_address = "127.0.0.1"
-program_address = "127.0.0.1"
 
-[pubsub.port]
-ui_pub = 5555
-program_pub = 5556
