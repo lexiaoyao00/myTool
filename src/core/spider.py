@@ -7,7 +7,7 @@ from pathlib import Path
 import aiofiles
 
 class Spider:
-    def __init__(self,headers:HeaderTypes, cookies:CookieTypes=None, chunk_size:int = 1024*1024*10):
+    def __init__(self,headers:HeaderTypes=None, cookies:CookieTypes=None, chunk_size:int = 1024*1024*10):
         """
         :param headers: 请求头字典
         :param chunk_size: 每次写入的分块大小（字节），默认 1MB
@@ -83,7 +83,7 @@ class Spider:
         return str(save_path)
 
 
-    def download(self, url: str, save_path: str, async_mode: bool | None = None):
+    def download(self, url: str, save_path: str|Path, async_mode: bool | None = None):
         """
         同步/异步下载统一接口
         :param url: 下载链接

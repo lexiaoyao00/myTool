@@ -12,6 +12,25 @@ from itertools import chain
 from core.spider import Spider
 from ..crawler import Crawler
 
+danbooru_header = {
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7,en-US;q=0.6',
+            'cache-control': 'no-cache',
+            'pragma': 'no-cache',
+            'priority': 'u=0, i',
+            'referer': 'https://danbooru.donmai.us/',
+            'sec-ch-ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'document',
+            'sec-fetch-mode': 'navigate',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-user': '?1',
+            'upgrade-insecure-requests': '1',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+            }
+
+
 class ItemPostsParams(BaseModel):
     d: int = 1
     tags: Optional[str] = None
@@ -193,23 +212,7 @@ class DanbooruScraper(Crawler):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.spider = Spider(
-            headers = {
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7,en-US;q=0.6',
-            'cache-control': 'no-cache',
-            'pragma': 'no-cache',
-            'priority': 'u=0, i',
-            'referer': 'https://danbooru.donmai.us/',
-            'sec-ch-ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'document',
-            'sec-fetch-mode': 'navigate',
-            'sec-fetch-site': 'same-origin',
-            'sec-fetch-user': '?1',
-            'upgrade-insecure-requests': '1',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-            }
+            headers = danbooru_header
         )
 
     async def run(self, scrape_type:str = None, **kwargs):
@@ -321,7 +324,7 @@ class DanbooruScraper(Crawler):
 
     def downloadPost(self, post:ItemPostInfo):
         download_url = post.download_url
-        save_path = Path('download/danbooru')
+        save_path = Path('storage/download/danbooru')
         save_path.mkdir(parents=True, exist_ok=True)
         save_path = save_path / f"{post.id}.{post.file_type}"
 
@@ -332,23 +335,7 @@ class DanbooruScraper(Crawler):
 
 async def testDanbooruPage():
     danbooru_spider = Spider(
-        headers = {
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7,en-US;q=0.6',
-        'cache-control': 'no-cache',
-        'pragma': 'no-cache',
-        'priority': 'u=0, i',
-        'referer': 'https://danbooru.donmai.us/',
-        'sec-ch-ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Google Chrome";v="140"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'same-origin',
-        'sec-fetch-user': '?1',
-        'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
-        }
+        headers = danbooru_header
     )
     danbooru_page = DanbooruPage(spider=danbooru_spider)
     # page_url = 'https://danbooru.donmai.us/'

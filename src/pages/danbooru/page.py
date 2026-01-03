@@ -7,9 +7,11 @@ from typing import List,Dict,Callable
 from loguru import logger
 import json
 from functools import partial
+from pathlib import Path
 
 from curl_cffi import AsyncSession
 from core.config import ConfigManager , Config
+from . import data_path
 
 
 class PreviewImage(ft.GestureDetector):
@@ -122,6 +124,27 @@ class DanbooruPage(BasePage):
             self.nav.navigate('/danbooru/post')
 
             return
+
+        post_id = post_url.split('?')[0].split('posts/')[-1]
+        if not post_id:
+            logger.error(f'无法解析的 post url:{post_url}')
+            self.page.open(ft.AlertDialog(
+                title="警告",
+                content=ft.Text(f"无法解析的 post url:{post_url}"),
+            ))
+            return
+
+        cache_data_path = data_path or 'storage/data'
+        cache_data_path = Path(cache_data_path) / 'danbooru' / 'item_info.json'
+
+        if cache_data_path.exists():
+            cache_item_info = json.loads(cache_data_path.read_text(encoding='utf-8'))
+            if post_id in cache_item_info:
+                logger.info(f'从缓存文件中获取 post info, post_id:{post_id}')
+                self._cache_post_info[post_url] = cache_item_info[post_id]
+                self.page.session.set('danbooru_post', cache_item_info[post_id])
+                self.nav.navigate('/danbooru/post')
+                return
 
 
         r = requests.post(f"http://127.0.0.1:8000/start/danbooru", json={

@@ -4,24 +4,16 @@ from typing import Any,Dict
 
 
 class Config:
-    _instance = None
     _data: dict = {}
     _file_path: Path = None
 
-    def __new__(cls, file_path: str | Path = None):
-        # 单例模式
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            if file_path is None:
-                raise ValueError("首次初始化必须提供配置文件路径")
-            cls._file_path = Path(file_path)
-            cls._load()
-        return cls._instance
+    def __init__(self, file_path: str | Path):
+        self._file_path = Path(file_path).resolve()
+        self._load()
 
-    @classmethod
-    def _load(cls):
+    def _load(self):
         """加载 TOML 文件到内存"""
-        cls._data = toml.load(cls._file_path)
+        self._data = toml.load(self._file_path)
 
     def save(self):
         """保存当前配置到文件"""
@@ -66,19 +58,22 @@ class Config:
 
 class ConfigManager:
     _instance = None
+    config_map : Dict[str, Config] = {}
+
     def __new__(cls):
         # 单例模式
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
-        self.config_map : Dict[str, Config] = {}
+    # def __init__(self):
+    #     self.config_map : Dict[str, Config] = {}
 
     def getConfig(self,file_path: str | Path) -> Config:
-        if file_path not in self.config_map:
-            self.config_map[file_path] = Config(file_path)
-        return self.config_map[file_path]
+        resolve_path = str(Path(file_path).resolve())
+        if resolve_path not in self.config_map:
+            self.config_map[resolve_path] = Config(resolve_path)
+        return self.config_map[resolve_path]
 
     def reload(self,file_path: str | Path):
         if file_path not in self.config_map:
@@ -93,3 +88,6 @@ class ConfigManager:
     def save_all(self):
         for config in self.config_map.values():
             config.save()
+
+    def list_config(self):
+        return self.config_map.keys()
