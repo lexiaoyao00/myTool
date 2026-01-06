@@ -133,7 +133,7 @@ class DanbooruPost:
 
 
     async def getInfoFromPosts(self, urls:List[str]):
-        response_list : List[Response] = await self.spider.asyncGet(urls)
+        response_list : List[Response] = await self.spider.asyncGetMulties(urls)
         if response_list is None:
             return None
 
@@ -178,7 +178,7 @@ class DanbooruPage:
 
 
     async def getPostsWithPreImgs(self, urls:List[str]):
-        response_list : List[Response] = await self.spider.asyncGet(urls)
+        response_list : List[Response] = await self.spider.asyncGetMulties(urls)
         if response_list is None:
             return None
 

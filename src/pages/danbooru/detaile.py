@@ -11,7 +11,6 @@ from core.spider import Spider
 from modules import danbooru_header
 
 import requests
-from . import download_path,data_path
 
 
 @register_route('/danbooru/post')
@@ -28,14 +27,6 @@ class DanbooruDetailPage(BasePage):
         self.sidebar_expanded = True
 
 
-        self._item_info_save_path = data_path or 'storage/data'
-        self._item_info_save_path = Path(self._item_info_save_path) / 'danbooru' / 'item_info.json'
-
-        self._download_dir = download_path or 'storage/download'
-        self._download_dir = Path(self._download_dir) / 'danbooru'
-
-
-
 
     def toggle_sidebar(self,e):
         self.sidebar_expanded = not self.sidebar_expanded
@@ -47,6 +38,13 @@ class DanbooruDetailPage(BasePage):
 
 
     def _download(self,e):
+        from . import download_path,data_path
+        self._item_info_save_path = data_path or 'storage/data'
+        self._item_info_save_path = Path(self._item_info_save_path) / 'danbooru' / 'item_info.json'
+
+        self._download_dir = download_path or 'storage/download'
+        self._download_dir = Path(self._download_dir) / 'danbooru'
+
         item_info = self.page.session.get('danbooru_post')
         if item_info is None:
             return

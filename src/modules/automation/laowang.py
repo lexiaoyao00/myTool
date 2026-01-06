@@ -2,7 +2,7 @@
 
 from typing import Union, Dict, List
 import curl_cffi
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright,Playwright
 from pathlib import Path
 import cv2
 import numpy as np
@@ -20,16 +20,16 @@ class Laowang(Crawler):
         self.cookies = {
             '_ga': 'GA1.1.767626091.1749998724',
             'X9wU_2132_smile': '1D1',
-            'X9wU_2132_visitedfid': '65D47D45',
-            'X9wU_2132_saltkey': 'H12h25Xu',
-            'X9wU_2132_lastvisit': '1762582201',
-            'X9wU_2132_auth': '16e4TJteK5qBIHAuon0aFtEJJqCpcQUZlibcGjuxbrbJyLS4MUjA3kfPMWw5DvqeIrTE%2FaayQLB15%2B5LWsoZhrwF0plm',
-            'X9wU_2132_lastcheckfeed': '2647033%7C1762585832',
-            'X9wU_2132_ulastactivity': '1762670186%7C0',
-            'cf_clearance': 'EPGsWFONw.yVbtAYdEN8lbzZ9Tp4fiNFj47YhkYl.VU-1762670187-1.2.1.1-f3QriHbSsOyVlQsPimSwH7f8GG6SFBJADiW.OlNYvxhjCzMRvFNcj2qC4o6LzKFwoCFghXHQZpQ.Op1pG2nO79J1Wjc6PJ1hTaJFHyTkhumE8EMGClPnr.2yA5jetBneTsZwKsyg0i4KbFqVQfw16frlNIjpWKZA3CZJAcMPUP.dWWXWawTlgs3.WQ.UsmY0f3do0K_dxur0Sk3FFO7rzqp2.5BDEsVBBUQj9v8Wa3s',
-            'PHPSESSID': '4i1spmv55qtinbvvf237q08pg5',
-            '_ga_BGYP9PD1HB': 'GS2.1.s1762670808$o21$g0$t1762670808$j60$l0$h0',
-            'X9wU_2132_lastact': '1762670808%09plugin.php%09',
+            'X9wU_2132_saltkey': 'MeXX843p',
+            'X9wU_2132_lastvisit': '1766131936',
+            'X9wU_2132_auth': '7a60ee75AWBR7oZlfydyCHkKjvGeUX%2Brre66%2F%2FrEM2sglnVL1PD6PyQe0yr%2FDTfTWPNvfV7zUw4K1ehtaQZ5lfK5XUyd',
+            'X9wU_2132_lastcheckfeed': '2647033%7C1766135602',
+            'X9wU_2132_atarget': '1',
+            'X9wU_2132_visitedfid': '65D43D131D727D907',
+            '_ga_BGYP9PD1HB': 'GS2.1.s1767577713$o30$g1$t1767578576$j38$l0$h0',
+            'X9wU_2132_ulastactivity': '1767663825%7C0',
+            'cf_clearance': 'sueAWFLq2yZ3pSrmZOYoCIDeb45neHzeLV3LgJrI7qQ-1767663832-1.2.1.1-5SovJmEjOPPAkOGqzeKkcvL0FGVLQIqWyHZY20IApfQI0rR6E6tOOF1IEW5m20X1d0LQAZiY0LN2G.pUh92xsPS4rEN_77dLwEjp7K3QW0XYrlHLy1TPBFRMc3EUOTODGBQAOBY_BMCSvVcwAfarcpp9Rvmww9tPqASLgQ_I59k9vpPI468LvDFnxjmIvM2.Q0U15rEqMecw73.IbTInwNgcERdtQCEMGG7PNFWABP_PWi2GZR8C4Sp4QUuHZ23A',
+            'X9wU_2132_lastact': '1767663833%09plugin.php%09',
         }
 
     async def run(self):

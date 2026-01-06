@@ -1,5 +1,11 @@
 from fastapi import FastAPI,WebSocket
-from modules import SpiderManager, DanbooruScraper, Laowang, HAnimeScraper, SSTM
+from modules import (
+    SpiderManager,
+    DanbooruScraper,
+    Laowang,
+    HAnimeScraper,
+    SSTM,
+    ExHentaiScraper)
 import asyncio
 from loguru import logger
 
@@ -16,9 +22,10 @@ async def init():
     spider_manager.register("laowang", Laowang)
     spider_manager.register("hanime", HAnimeScraper)
     spider_manager.register("sstm", SSTM)
+    spider_manager.register("exhentai", ExHentaiScraper)
 
     spdiers = {
-        '爬虫': ["danbooru", "hanime"],
+        '爬虫': ["danbooru", "hanime","exhentai"],
         '签到': ["laowang", "sstm"]
     }
 

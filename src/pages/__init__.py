@@ -6,6 +6,7 @@ from .router import register_route,RouteManager
 
 from .danbooru import DanbooruPage,DanbooruDetailPage
 from .hanime import HanimePage
+from .exhentai import ExhentaiPage
 
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "DanbooruPage",
     "DanbooruDetailPage",
     "HanimePage",
+    "ExhentaiPage",
 ]

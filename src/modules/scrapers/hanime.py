@@ -13,6 +13,41 @@ import time
 from ..crawler import Crawler
 
 
+
+hanime_headers = {
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7,en-US;q=0.6',
+    'cache-control': 'max-age=0',
+    'priority': 'u=0, i',
+    'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+    'sec-ch-ua-arch': '"x86"',
+    'sec-ch-ua-bitness': '"64"',
+    'sec-ch-ua-full-version': '"143.0.7499.170"',
+    'sec-ch-ua-full-version-list': '"Google Chrome";v="143.0.7499.170", "Chromium";v="143.0.7499.170", "Not A(Brand";v="24.0.0.0"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-model': '""',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-ch-ua-platform-version': '"10.0.0"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'sec-fetch-user': '?1',
+    'upgrade-insecure-requests': '1',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+}
+
+hanime_cookie = {
+    # 'remember_web_59ba36addc2b2f9401580f014c7f58ea4e30989d': 'eyJpdiI6IlwvUG91V2NmNTRuSXl2NEtKek9aQ0F3PT0iLCJ2YWx1ZSI6Iks4R3FUekdCVHZwVjREYnkrUUFYY2NyNm9iaUszditPOGp5ME1OTm16WTJXSTRLekNkVEU0bkM1aDlmbXlLOGsrOEthRUYzY1A2bmp0OTFYeEsxM2lCMTl6VGh0NThuZnRvUzFXK2hjSlQ1eTFRYllmVzgxTU5pK1E4OGx3cE1CRmZIekFzVnZvY0VCZzJmNFRZb041U3BoU0poNHZuWm5qeEpNUDhMTDdFQllFakg0MDV5Y0xQXC84TjM3SEgzeHkiLCJtYWMiOiJjMzY0YWE0NzhmNWZkOTRhYjYwYzc0NzBhYzUwYmRjMWQ1YjQ0ZWNhOWQ2YjQzMWU5Mjg3YWNiZjExZjRkMWVkIn0%3D',
+    # '_ga_2JNTSFQYRQ': 'deleted',
+    # '_gid': 'GA1.2.675969733.1767579163',
+    # 'cf_clearance': 'id89XEJkb_g93ezkdhIIfu2mOqU6noJLyJyfHiFizLE-1767579309-1.2.1.1-5n.CNVpZLhPAw.tmcuzI_OSRvi90VvVJKSq69Bb9ZOLcaSEU7GVrsGXeKspV3dCKwuYP.PN_.sE20X5C4_cddnLIcR2T8ku20t7GwQZV2XWaJxsv6fbvQqxfnQXT634.q8iO6rC7XndtP5CzfCGTMJegYaFBDGVbwQsZkolA1SzuyCxD5_aUs.FLfnya7c5UBXthmcwYKxmKoPhiwC0OuxLOcDAMkhgY5aXx_uHPrZpRj0NkJrgZBbrBgOLqDtP3',
+    # 'XSRF-TOKEN': 'eyJpdiI6IkpWMHlySTVLQWNZVU8xSUFpbFhCb0E9PSIsInZhbHVlIjoiU283N3lIbEhuTFdhcXRZOVFGUmJSS1o4Y01LTVFVck5NbXVveTNFbFB3VWlMNHE4UEJkbHlIWDh4N3p3ZEJiMiIsIm1hYyI6IjUxMDE1ZDBjMjk1MmIyNWUyYWY3MGU5MGM0ZDcwOWJjZWVjNWJlMDQ5NGU2ZTZkZjAzYjYyYzI3NjU4ODFmMjYifQ%3D%3D',
+    # 'hanime1_session': 'eyJpdiI6IkRVcjJWaDBxcG10SGtsZjRHTVZaUFE9PSIsInZhbHVlIjoiTnBjenpSMWxjZzJqWHFxaHA4dnBpbTFlY2tvVVpRcUx3R0JqQnh6d2RCREtJWkFrWFFSc3ZzXC91bDJudzFPWUQiLCJtYWMiOiJhZjUyOWY3Y2ViZGQzNTUyNjkxZjJmYTI0NTg0NmZmMzQ4MmNjZDU3NzIyNThkNWFhYWI3ODMwZTdlMjU4NmFmIn0%3D',
+    '_ga': 'GA1.2.120883284.1751720600',
+    '_gat_gtag_UA_125786247_2': '1',
+}
+
+
 class ItemSearchParameters(BaseModel):
     query : str = None
     type : str = None
@@ -131,7 +166,7 @@ class HAnimeWatch:
     def getWatchInfo(self,url:str):
         response : Response = self.spider.syncGet(url=url,session=self.session)
         if response is None:
-            logger.warning('hanime getWatchInfo response is None')
+            logger.warning(f'hanime getWatchInfo response is None, status_code: {response.status_code}')
             return None
 
         return self._parseWatchInfo(html=response.text)
@@ -150,7 +185,7 @@ class HAnimeWatch:
         if watch_info is None or watch_info.playlist is None or len(watch_info.playlist.playlist_urls) < 2:
             return watch_info
 
-        series_res = await self.spider.asyncGet(urls=watch_info.playlist.playlist_urls)
+        series_res = await self.spider.asyncGetMulties(urls=watch_info.playlist.playlist_urls)
         if series_res is None:
             return None
 
@@ -206,9 +241,10 @@ class HAnimeSearch:
 
         return self._parseWatchPreviews(html=response.text)
 
-    def getWatchPreviewWithParams(self,parameters:ItemSearchParameters):
+    def getWatchPreviewWithParams(self,parameters:ItemSearchParameters = None):
         url = URL(self.base_url)
-        url = url.with_query(parameters.to_query_list(exclude_unset=True))
+        if parameters is not None:
+            url = url.with_query(parameters.to_query_list(exclude_unset=True))
         logger.info(f'HAnimeSearch getWatchPreviewWithParams url: {url}')
         return self.getWatchPreview(url=str(url))
 
@@ -219,28 +255,71 @@ class HAnimeScraper(Crawler):
         super().__init__(**kwargs)
         self.session = Session()
         self.spider = Spider(
-            headers = {
-                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7,en-US;q=0.6',
-                'cache-control': 'max-age=0',
-                'priority': 'u=0, i',
-                'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
-                'sec-fetch-dest': 'document',
-                'sec-fetch-mode': 'navigate',
-                'sec-fetch-site': 'none',
-                'sec-fetch-user': '?1',
-                'upgrade-insecure-requests': '1',
-                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
-            }
+            headers = hanime_headers,
+            cookies = hanime_cookie
         )
 
         self.searcher = HAnimeSearch(self.spider,session=self.session)
         self.watch = HAnimeWatch(self.spider,session=self.session)
 
-    async def run(self):
-        await self.test()
+    async def run(self,**kwargs):
+        scrape_type = kwargs.get('scrape_type')
+
+        if scrape_type == 'search':
+            parameters = kwargs.get('parameters')
+            item_pre_list = self.searchPreviewsWithParameters(parameters=parameters)
+            if item_pre_list is None:
+                logger.warning('hanime run item_pre_list is None')
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "search",
+                    "message": "抓取到的数据为空"
+                })
+                return
+
+            res_list = [item.model_dump() for item in item_pre_list]
+            self.queue.put({
+                "status": "success",
+                "type" : "search",
+                "data": res_list
+            })
+
+        elif scrape_type == 'watch':
+            url = kwargs.get('url')
+            if url is None:
+                logger.warning('hanime run url is None')
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "watch",
+                    "message": "url is None"
+                })
+                return
+            watch_info = self.getWatchInfo(url=url)
+            if watch_info is None:
+                logger.warning('hanime run watch_info is None')
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "watch",
+                    "message": "抓取到的数据为空"
+                })
+                return
+
+            return watch_info
+
+        elif scrape_type == 'series':
+            url = kwargs.get('url')
+            if url is None:
+                logger.warning('hanime run url is None')
+                return
+            watch_info_list = await self.watch.getSeriesWatchInfos(url=url)
+            if watch_info_list is None:
+                logger.warning('hanime run watch_info_list is None')
+                return
+
+            return watch_info_list
+
+        else:
+            await self.test()
 
 
 
@@ -248,7 +327,7 @@ class HAnimeScraper(Crawler):
     def searchPreviews(self, url:str):
         return self.searcher.getWatchPreview(url=url)
 
-    def searchPreviewsWithParameters(self, parameters:ItemSearchParameters):
+    def searchPreviewsWithParameters(self, parameters:ItemSearchParameters = None):
         return self.searcher.getWatchPreviewWithParams(parameters=parameters)
 
     def getWatchInfo(self,url:str):

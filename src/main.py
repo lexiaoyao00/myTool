@@ -8,13 +8,13 @@ from modules import SpiderManager
 
 from pages import Navigator, RouteManager
 from multiprocessing import Process
-
-log_dir = 'storage/logs'
+from core.config import PRO_DIR
+log_dir = PRO_DIR / 'storage/logs'
 logger.remove()
-logger.add(f"{log_dir}/debug.log", enqueue=True, rotation="10 MB", retention="10 days",level="DEBUG")
-logger.add(f"{log_dir}/info.log", enqueue=True, rotation="10 MB", retention="10 days",level="INFO")
-logger.add(f"{log_dir}/warning.log", enqueue=True,rotation="10 MB", retention="10 days",level="WARNING")
-logger.add(f"{log_dir}/error.log", enqueue=True,rotation="10 MB", retention="10 days",level="ERROR")
+logger.add(f"{str(log_dir)}/debug.log", enqueue=True, rotation="10 MB", retention="10 days",level="DEBUG")
+logger.add(f"{str(log_dir)}/info.log", enqueue=True, rotation="10 MB", retention="10 days",level="INFO")
+logger.add(f"{str(log_dir)}/warning.log", enqueue=True,rotation="10 MB", retention="10 days",level="WARNING")
+logger.add(f"{str(log_dir)}/error.log", enqueue=True,rotation="10 MB", retention="10 days",level="ERROR")
 
 # 应用
 class MyApp:

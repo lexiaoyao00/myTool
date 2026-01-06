@@ -1,4 +1,4 @@
-from typing import List,Optional
+from typing import List,Optional,overload,override
 import curl_cffi
 from curl_cffi import Response,AsyncSession,HeaderTypes,CookieTypes,Session
 import asyncio
@@ -15,7 +15,7 @@ class Spider:
         self.headers = headers
         self.cookies = cookies
         self.chunk_size = chunk_size
-        self.impersonate='chrome110'
+        self.impersonate='chrome'
 
 
     def syncGet(self, url:str, session:Session = None):
@@ -35,8 +35,18 @@ class Spider:
         return response
 
 
-    async def asyncGet(self, urls:List[str]):
+    async def asyncGet(self, url:str):
         async with AsyncSession() as s:
+            task = s.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate,allow_redirects=True)
+            try:
+                result:Response = await task
+                return result
+            except Exception as e:
+                logger.error(f"Failed to scrape, error: {e}")
+                return None
+
+    async def asyncGetMulties(self, urls:List[str],max_workers:int = 10):
+        async with AsyncSession(max_clients=max_workers) as s:
             tasks = []
             for url in urls:
                 task = s.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate)
@@ -50,7 +60,7 @@ class Spider:
                 return None
 
 
-    def _download_sync(self, url: str, save_path: Path) -> str:
+    def download_sync(self, url: str, save_path: Path) -> str:
         """同步下载（流式分块写入）"""
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -66,18 +76,20 @@ class Spider:
         logger.info(f"同步下载完成: {url} -> {save_path}")
         return str(save_path)
 
-    async def _download_async(self, url: str, save_path: Path) -> str:
+    async def download_async(self, url: str, save_path: Path) -> str:
         """异步下载（流式分块写入）"""
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
-        async with AsyncSession() as session:
+        async with AsyncSession(max_clients=5) as session:
             async with session.stream("GET", url, headers=self.headers) as resp:
                 if resp.status_code != 200:
                     raise Exception(f"下载失败: HTTP {resp.status_code}")
 
                 async with aiofiles.open(save_path, "wb") as f:
-                    async for chunk in resp.aiter_bytes(chunk_size=self.chunk_size):
+                    async for chunk in resp.aiter_content(chunk_size=self.chunk_size):
                         await f.write(chunk)
+
+            await asyncio.sleep(1)  # 等待1秒，确保文件写入完成或者请求过快
 
         logger.info(f"异步下载完成: {url} -> {save_path}")
         return str(save_path)
@@ -102,10 +114,10 @@ class Spider:
 
         if async_mode:
             # 异步模式
-            return self._download_async(url, path)
+            return self.download_async(url, path)
         else:
             # 同步模式
-            return self._download_sync(url, path)
+            return self.download_sync(url, path)
 
 
 if __name__ == '__main__':

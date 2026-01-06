@@ -1,5 +1,41 @@
 import enum
 from typing import Dict, List, Optional
+import zipfile
+from pathlib import Path
+
+
+def zip_dir(folder_path, zip_path, include_dirs: bool = False):
+    """
+    使用 pathlib 遍历目录并压缩到 zip 文件
+    :param folder_path: 要压缩的目录路径（str 或 Path）
+    :param zip_path: 生成的 zip 文件路径（str 或 Path）
+    :param include_dirs: 是否在压缩包中包含目录（即使目录为空）
+    """
+    folder_path = Path(folder_path)
+    zip_path = Path(zip_path)
+
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for path in folder_path.rglob("*"):
+            # 如果是文件就直接写
+            if path.is_file():
+                arcname = path.relative_to(folder_path)
+                zipf.write(path, arcname)
+            elif include_dirs and path.is_dir():
+                # zip 文件中显式添加目录（保留空文件夹）
+                arcname = path.relative_to(folder_path).as_posix() + '/'
+                zinfo = zipfile.ZipInfo(arcname)
+                zipf.writestr(zinfo, '')  # 目录内容为空
+
+    # print(f"✅ 打包完成：{zip_path}")
+    return zip_path
+
+def add_file_to_zip(zip_path, file_path, arcname=None):
+    zip_path = Path(zip_path)
+    file_path = Path(file_path)
+
+    with zipfile.ZipFile(zip_path, 'a', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(file_path, arcname or file_path.name)
+    # print(f"✅ 已添加 {file_path} 到 {zip_path}")
 
 
 class FileType(enum.Enum):

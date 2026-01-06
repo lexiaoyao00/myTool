@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Any,Dict
 
 
+PRO_DIR = Path(__file__).parent.parent.parent
+
 class Config:
     _data: dict = {}
     _file_path: Path = None
@@ -70,7 +72,11 @@ class ConfigManager:
     #     self.config_map : Dict[str, Config] = {}
 
     def getConfig(self,file_path: str | Path) -> Config:
-        resolve_path = str(Path(file_path).resolve())
+        path = Path(file_path)
+        if path.is_absolute():
+            resolve_path = str(path.resolve())
+        else:
+            resolve_path = PRO_DIR / path
         if resolve_path not in self.config_map:
             self.config_map[resolve_path] = Config(resolve_path)
         return self.config_map[resolve_path]
