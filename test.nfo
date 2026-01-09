@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<movie>
+	<title>title</title>
+	<sorttitle>sorttitle</sorttitle>
+	<rating>9.9</rating>
+	<tagline>tagline</tagline>
+	<studio>studio1</studio>
+	<studio>studio2</studio>
+	<tag>tag1</tag>
+	<tag>tag2</tag>
+	<genre>genre1</genre>
+	<genre>genre2</genre>
+</movie>

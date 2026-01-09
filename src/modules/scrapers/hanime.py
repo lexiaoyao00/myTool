@@ -9,6 +9,9 @@ from parsel import Selector
 from yarl import URL
 from pathlib import Path
 import time
+from core.config import PRO_DIR
+from core.nfo import NFO, EmbyMovieModel
+import re
 
 from ..crawler import Crawler
 
@@ -262,12 +265,23 @@ class HAnimeScraper(Crawler):
         self.searcher = HAnimeSearch(self.spider,session=self.session)
         self.watch = HAnimeWatch(self.spider,session=self.session)
 
+        self.nfo = NFO()
+
     async def run(self,**kwargs):
         scrape_type = kwargs.get('scrape_type')
 
         if scrape_type == 'search':
-            parameters = kwargs.get('parameters')
-            item_pre_list = self.searchPreviewsWithParameters(parameters=parameters)
+            url = kwargs.get('url')
+            if not url:
+                logger.warning('hanime run watch url is None')
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "watch",
+                    "message": "url is None"
+                })
+                return
+
+            item_pre_list = self.searchPreviews(url=url)
             if item_pre_list is None:
                 logger.warning('hanime run item_pre_list is None')
                 self.queue.put({
@@ -278,6 +292,12 @@ class HAnimeScraper(Crawler):
                 return
 
             res_list = [item.model_dump() for item in item_pre_list]
+            # 保存数据测试
+            save_path = PRO_DIR / 'storage/data/hanime/search.json'
+            save_path.parent.mkdir(parents=True,exist_ok=True)
+            with open(save_path,'w',encoding='utf-8') as f:
+                f.write(json.dumps(res_list,ensure_ascii=False,indent=4))
+
             self.queue.put({
                 "status": "success",
                 "type" : "search",
@@ -286,14 +306,15 @@ class HAnimeScraper(Crawler):
 
         elif scrape_type == 'watch':
             url = kwargs.get('url')
-            if url is None:
-                logger.warning('hanime run url is None')
+            if not url:
+                logger.warning('hanime run watch url is None')
                 self.queue.put({
                     "status": "failed",
                     "type" : "watch",
                     "message": "url is None"
                 })
                 return
+            logger.info(f'HAnimeScraper run watch url: {url}')
             watch_info = self.getWatchInfo(url=url)
             if watch_info is None:
                 logger.warning('hanime run watch_info is None')
@@ -304,24 +325,75 @@ class HAnimeScraper(Crawler):
                 })
                 return
 
-            return watch_info
+            # save_path = PRO_DIR / 'storage/data/hanime/watch.json'
+            # save_path.parent.mkdir(parents=True,exist_ok=True)
+            # with open(save_path,'w',encoding='utf-8') as f:
+            #     f.write(json.dumps(watch_info.model_dump(),ensure_ascii=False,indent=4))
+
+            self._save_to_nfo(watch_info=watch_info)
 
         elif scrape_type == 'series':
             url = kwargs.get('url')
-            if url is None:
-                logger.warning('hanime run url is None')
+            if not url:
+                logger.warning('hanime run series url is None')
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "series",
+                    "message": "url is None"
+                })
                 return
+
             watch_info_list = await self.watch.getSeriesWatchInfos(url=url)
             if watch_info_list is None:
                 logger.warning('hanime run watch_info_list is None')
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "series",
+                    "message": "抓取到的数据为空"
+                })
                 return
 
-            return watch_info_list
+            # return watch_info_list
+
+            if isinstance(watch_info_list, list):
+                series_titile = watch_info_list[0].playlist.title
+                for watch_info in watch_info_list:
+                    file_stem = watch_info.title
+                    file_stem = re.sub(r'[\\/:*?"<>|]', ' ', file_stem)
+                    path = PRO_DIR / f'storage/data/hanime/nfo/{series_titile}/{file_stem}.nfo'
+                    self._save_to_nfo(watch_info=watch_info,save_path=path)
+            else:
+                file_stem = watch_info.title
+                file_stem = re.sub(r'[\\/:*?"<>|]', ' ', file_stem)
+                path = PRO_DIR / f'storage/data/hanime/nfo/{file_stem}.nfo'
+                self._save_to_nfo(watch_info=watch_info,save_path=path)
+
 
         else:
             await self.test()
 
 
+
+    def _save_to_nfo(self,watch_info:ItemWatchInfo, save_path:Path|str = None):
+        model_data = {
+            "title": watch_info.title,
+            "sorttitle": watch_info.title,
+            "plot": watch_info.description,
+            "studio": [watch_info.artist],
+            "tag": watch_info.tags,
+            "genre": [watch_info.category]
+        }
+        emby_nfo : EmbyMovieModel = EmbyMovieModel(**model_data)
+
+        file_stem = watch_info.title
+        # 处理文件名中的特殊字符
+        file_stem = re.sub(r'[\\/:*?"<>|]', ' ', file_stem)
+        path = save_path or PRO_DIR / f'storage/data/hanime/nfo/{file_stem}.nfo'
+        path.parent.mkdir(parents=True,exist_ok=True)
+
+        self.nfo.save_emby_move(emby_nfo,save_path=path)
+        logger.info(f'HAnimeScraper _save_to_nfo save_path: {path}')
+        return path
 
 
     def searchPreviews(self, url:str):

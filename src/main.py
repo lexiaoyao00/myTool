@@ -10,7 +10,7 @@ from pages import Navigator, RouteManager
 from multiprocessing import Process
 from core.config import PRO_DIR
 log_dir = PRO_DIR / 'storage/logs'
-logger.remove()
+# logger.remove()
 logger.add(f"{str(log_dir)}/debug.log", enqueue=True, rotation="10 MB", retention="10 days",level="DEBUG")
 logger.add(f"{str(log_dir)}/info.log", enqueue=True, rotation="10 MB", retention="10 days",level="INFO")
 logger.add(f"{str(log_dir)}/warning.log", enqueue=True,rotation="10 MB", retention="10 days",level="WARNING")

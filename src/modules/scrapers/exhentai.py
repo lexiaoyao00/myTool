@@ -154,7 +154,7 @@ class ExHentaiPost():
         selector = Selector(text=html)
         item = ExHentaiPostModel()
         item.titile = selector.css('h1#gn::text').get()
-        item.subtitle = selector.css('h1#gj::text').get()
+        item.subtitle = selector.css('h1#gj::text').get() or item.titile        # 部分画廊没有副标题
         gd3 = selector.css('div#gmid div#gd3')
         item.categories = gd3.css('div#gdc div::text').get()
         item.uploader = gd3.css('div#gdn a::text').get()
@@ -351,26 +351,35 @@ class ExHentaiScraper(Crawler):
     def add_metadata_to_cbz(self,cbz_dir:Path,recursive:bool = True):
         cbz_list = self._glob_cbz(cbz_dir,recursive=recursive)
         files_stem =  [cbz.stem for cbz in cbz_list]
-        print(files_stem)
+        # print(files_stem)
+        logger.info(f'找到 {len(cbz_list)} 个 cbz 文件')
 
+        # 文件名中不会有 '/' 符号，替换成 ' '
+        cache_items_subtitle = {item['subtitle'].replace('/',' '):item['gid'] for item in self._saved_items.values()}
 
-        cache_items_subtitle = {item['subtitle']:item['gid'] for item in self._saved_items.values()}
-
+        failed : List[str] = []
         for file_stem in files_stem:
             if file_stem in cache_items_subtitle.keys():
-                print(f'找到 {file_stem}')
+                logger.info(f'找到 {file_stem}')
                 # item = cache_items_subtitle.index(file_stem)
                 gid = cache_items_subtitle[file_stem]
 
                 comicInfo_file = self._data_save_dir / f'ComicInfo/ComicInfo_{gid}.xml'
-                print(f'对应的 ComicInfo 文件为：{comicInfo_file}')
+                logger.info(f'对应的 ComicInfo 文件为：{comicInfo_file}')
                 if comicInfo_file.exists():
                     with open(comicInfo_file,'r',encoding='utf-8') as f:
                         comicInfo_content = f.read()
                     self.comicInfo_to_cbz(comicInfo_content,cbz_list[files_stem.index(file_stem)])
-                    print(f'成功添加 {file_stem} 的 ComicInfo 文件')
+                    logger.info(f'成功添加 {file_stem} 的 ComicInfo 文件')
                 else:
-                    print(f'未找到 {file_stem} 的 ComicInfo 文件')
+                    logger.error(f'未找到 {file_stem} 的 ComicInfo 文件')
+                    failed.append(file_stem)
+            else:
+                logger.error(f'未找到 {file_stem} 的信息')
+                failed.append(file_stem)
+
+        logger.info(f'添加完成，共 {len(cbz_list)} 个文件，{len(failed)} 个文件添加失败')
+        return failed
 
     def _to_comicInfo(self,post_data: ExHentaiPostModel, save_to_path:bool = False, save_path:Path|str = None):
             tags_list = []
@@ -387,7 +396,7 @@ class ExHentaiScraper(Crawler):
             data = {
                 'series': series_str,
                 'writer': artist_str,
-                'title': post_data.subtitle,
+                'title': post_data.titile,
                 'tags': tags_str,
                 'web': post_data.post_link,
             }
