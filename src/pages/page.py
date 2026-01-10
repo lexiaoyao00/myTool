@@ -15,6 +15,14 @@ class CommonNavBar(ft.AppBar):
             ]
         )
 
+class CommonAllert(ft.AlertDialog):
+    def __init__(self, title: str, content: str, actions: list[ft.Control] = None):
+        super().__init__(
+            title=ft.Text(title),
+            content=ft.Text(content),
+            actions= actions
+        )
+
 # 基类
 class BasePage(ABC):
     def __init__(self, page: ft.Page, nav: Navigator):

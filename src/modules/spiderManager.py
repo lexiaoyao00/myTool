@@ -46,6 +46,7 @@ class SpiderManager():
         self.task_queues = {}
 
         threading.Thread(target=self._cleanup_task_queues, daemon=True).start()
+        threading.Thread(target=self._cleanup_task_processes, daemon=True).start()
 
 
     def __del__(self):
@@ -105,12 +106,20 @@ class SpiderManager():
 
     def _cleanup_task_queues(self):
         while True:
-            time.sleep(60)  # 每分钟检查
+            time.sleep(60)  # 每分钟检查一次
             for task_id in list(self.task_queues.keys()):
                 q = self.task_queues[task_id]
                 # 这里可以加判断队列是否长期无数据，或者任务超时
                 if q.empty():
                     del self.task_queues[task_id]
+    def _cleanup_task_processes(self):
+        while True:
+            time.sleep(1)  # 每秒检查一次
+            for name in list(self._processes.keys()):
+                p = self._processes[name]
+                if not p.is_alive():
+                    logger.debug(f"爬虫 {name} 已结束，主动结束进程")
+                    self.stop(name)
 
     def stop(self, name: str):
         """停止单个爬虫进程"""
@@ -138,9 +147,14 @@ class SpiderManager():
         logger.info(f"[子进程] PID={os.getpid()} 启动")
         instance = target(queue=q)
         q.put({"status":"start"})
-        asyncio.run(instance.run(*args, **kwargs))
-        logger.info(f"[子进程] PID={os.getpid()} 任务完成")
-        q.put({"status":"finished"})
+        try:
+            asyncio.run(instance.run(*args, **kwargs))
+        except Exception as e:
+            logger.error(f"[子进程] PID={os.getpid()} 发生异常: {e}")
+            q.put({"status":"error", "message": str(e)})
+        finally:
+            logger.info(f"[子进程] PID={os.getpid()} 任务完成")
+            q.put({"status":"finished"})
 
 
 # class SpiderManagerFunc(InteractionResPub):

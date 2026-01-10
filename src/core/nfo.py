@@ -21,6 +21,8 @@ class EmbyMovieModel(BaseModel):
     tag: List[str] = None  # 标签
     genre : List[str] = None    # 类型
 
+    url : str = None  # 链接
+
 
 class NFO:
     def save_emby_move(self, emby_movie: EmbyMovieModel, save_path: Path|str):

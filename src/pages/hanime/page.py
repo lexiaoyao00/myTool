@@ -6,7 +6,7 @@ from functools import partial
 
 from typing import Dict
 from curl_cffi import AsyncSession
-
+from loguru import logger
 
 @register_route("/hanime")
 class HanimePage(BasePage):
@@ -15,6 +15,11 @@ class HanimePage(BasePage):
         self.page.title = "Hanime"
         self._search_url_tf = ft.TextField(label="search url")
         self._watch_url_tf = ft.TextField(label="watch url")
+        self._progress_column = ft.Column(
+            alignment = ft.MainAxisAlignment.END,
+            expand=True,
+        )
+        self._download_cb = ft.Checkbox(label="抓取 watch 或 series 信息后下载", value=False)
         self._column = ft.Column(
             alignment=ft.MainAxisAlignment.START,
             expand=True,
@@ -23,12 +28,30 @@ class HanimePage(BasePage):
                 # ft.Text(value="This is a preview of the Hanime page", size=20),
                 self._search_url_tf,
                 self._watch_url_tf,
-                ft.ElevatedButton(text='test',on_click=self.test),
-                ft.ElevatedButton(text='search',on_click=partial(self.on_btn_click, scrape_type='search')),
-                ft.ElevatedButton(text='watch',on_click=partial(self.on_btn_click, scrape_type='watch')),
-                ft.ElevatedButton(text='series',on_click=partial(self.on_btn_click, scrape_type='series')),
+                self._download_cb,
+                ft.Row(
+                    alignment = ft.MainAxisAlignment.START,
+                    controls = [
+                        # ft.ElevatedButton(text='test',on_click=self.test),
+                        ft.ElevatedButton(text='search',on_click=partial(self.on_btn_click, scrape_type='search')),
+                        ft.ElevatedButton(text='watch',on_click=partial(self.on_btn_click, scrape_type='watch')),
+                        ft.ElevatedButton(text='series',on_click=partial(self.on_btn_click, scrape_type='series')),
+                    ]
+                ),
+
+
+                self._progress_column,
             ],
         )
+
+    def _progress_bar_view(self, progress:Dict[str,float]):
+        self._progress_column.controls.clear()
+        for name, percent in progress.items():
+            self._progress_column.controls.append(ft.Text(value=f"{name}:{percent * 100:.2f}%"))
+            self._progress_column.controls.append(ft.ProgressBar(value=percent,expand=True,height=20))
+
+        self.page.update()
+
 
     async def on_btn_click(self,e:ft.ControlEvent, scrape_type:str):
         # e.control.disabled = True
@@ -40,12 +63,19 @@ class HanimePage(BasePage):
         else:
             url = None
 
-        print(f"on_btn_click scrape_type:{scrape_type}, url:{url}")
-        r = requests.post(f"http://127.0.0.1:8000/start/hanime", json={
+        print(f"下载确认:{self._download_cb.value}")
+        json_data = {
             'scrape_type':scrape_type,
             'url':url,
-            })
+            'download':self._download_cb.value
+        }
+        print(f"on_btn_click scrape_type:{scrape_type}, url:{url}")
+        r = requests.post(f"http://127.0.0.1:8000/start/hanime", json=json_data)
         print(r.json())
+        res_json = r.json()
+        if res_json['status'] in ['NG','ERROR']:
+            self.page.open(ft.AlertDialog(content=ft.Text(value=res_json['message'])))
+            return
 
         await self.listen_ws(r.json()['task_id'])
 
@@ -59,35 +89,50 @@ class HanimePage(BasePage):
 
 
     async def listen_ws(self,task_id):
+        logger.info(f"task '{task_id}' WebSocket start in Hanime")
         async with AsyncSession() as session:
             ws = await session.ws_connect(f"ws://127.0.0.1:8000/ws/{task_id}")
 
             try:
                 while True:
                     msg:Dict = await ws.recv_json()
-                    status:str|None = msg.get('status')
+                    status:str = msg.get('status','')
 
                     # if status == "success":
-                    print("=========ws recv=========")
-                    print(msg)
+                    # print("=========ws recv=========")
+                    # print(msg)
 
                     if status == 'finished':
-                        print("=========ws recv finished=========")
+                        # print("=========ws recv finished=========")
+                        logger.info(f"task '{task_id}' 结束")
                         break
 
-                    if msg is None:
-                        print("链接关闭")
+                    if status in ['failed','error']:
+                        logger.error(f"task '{task_id}' WebSocket error:{msg['message']}")
+                        self.page.open(ft.AlertDialog(title='ERROR',content=ft.Text(value=msg['message'])))
+                        break
+
+                    if status == 'running':
+                        progress = msg.get('progress')
+                        if progress:
+                            self._progress_bar_view(progress)
+
+
+                    if msg is None or ws.closed:
+                        logger.info(f"task '{task_id}' 链接关闭")
                         break
 
                         # self._preview_gallery.extent(data['data'])
                         # self.page.update()
             except Exception as e:
-                # logger.error(f'ws 接收消息时发生错误:{e}')
-                print(f'ws 接收消息时发生错误:{e}')
+                logger.error(f'ws 接收消息时发生错误:{e}')
+                # print(f'ws 接收消息时发生错误:{e}')
             # data = await ws.recv_json()
             # print("=========ws recv=========")
             # print(data)
             await ws.close()
+            # self._progress_column.controls.clear()
+            self.page.update()
 
     def build(self) -> ft.View:
         return ft.View(

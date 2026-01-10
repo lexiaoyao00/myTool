@@ -1,5 +1,6 @@
 from typing import List,Dict,Optional,ClassVar
 import json
+import asyncio
 
 from loguru import logger
 from curl_cffi import Response,Session
@@ -186,7 +187,7 @@ class HAnimeWatch:
 
         watch_info : ItemWatchInfo = self._parseWatchInfo(html=response.text)
         if watch_info is None or watch_info.playlist is None or len(watch_info.playlist.playlist_urls) < 2:
-            return watch_info
+            return [watch_info]
 
         series_res = await self.spider.asyncGetMulties(urls=watch_info.playlist.playlist_urls)
         if series_res is None:
@@ -306,6 +307,7 @@ class HAnimeScraper(Crawler):
 
         elif scrape_type == 'watch':
             url = kwargs.get('url')
+            download_flag = kwargs.get('download',False)
             if not url:
                 logger.warning('hanime run watch url is None')
                 self.queue.put({
@@ -330,10 +332,37 @@ class HAnimeScraper(Crawler):
             # with open(save_path,'w',encoding='utf-8') as f:
             #     f.write(json.dumps(watch_info.model_dump(),ensure_ascii=False,indent=4))
 
-            self._save_to_nfo(watch_info=watch_info)
+            download_dict : Dict[str,str] = {}
+            if watch_info.playlist:
+                series_titile = watch_info.playlist.title
+            else:
+                series_titile = watch_info.title
+            series_titile = re.sub(r'[\\/:*?"<>|]', ' ', series_titile)
+
+            file_stem = watch_info.title
+            file_stem = re.sub(r'[\\/:*?"<>|]', ' ', file_stem)
+            path = PRO_DIR / f'storage/data/hanime/nfo/{series_titile}/{file_stem}.nfo'
+            self._save_to_nfo(watch_info=watch_info,save_path=path)
+
+            if download_flag:
+                max_resolution = max(list(watch_info.download_urls.keys()),key=int)
+                download_url = watch_info.download_urls[max_resolution]
+                file_suffix = download_url.split('.')[-1].split('?')[0]
+                file_name = f'{file_stem}.{file_suffix}'
+                download_dict[file_name] =download_url
+
+                logger.info(f'开始下载 "{watch_info.title}" 视频文件')
+                await self._download(download_dict=download_dict,series_name=series_titile)
+
+            self.queue.put({
+                "status": "success",
+                "type" : "watch",
+                "data": watch_info.model_dump(exclude_unset=True)
+            })
 
         elif scrape_type == 'series':
             url = kwargs.get('url')
+            download_flag = kwargs.get('download',False)
             if not url:
                 logger.warning('hanime run series url is None')
                 self.queue.put({
@@ -355,23 +384,73 @@ class HAnimeScraper(Crawler):
 
             # return watch_info_list
 
-            if isinstance(watch_info_list, list):
+            download_dict : Dict[str,str] = {}
+            if watch_info_list[0].playlist:
                 series_titile = watch_info_list[0].playlist.title
-                for watch_info in watch_info_list:
-                    file_stem = watch_info.title
-                    file_stem = re.sub(r'[\\/:*?"<>|]', ' ', file_stem)
-                    path = PRO_DIR / f'storage/data/hanime/nfo/{series_titile}/{file_stem}.nfo'
-                    self._save_to_nfo(watch_info=watch_info,save_path=path)
             else:
+                series_titile = watch_info_list[0].title
+            series_titile = re.sub(r'[\\/:*?"<>|]', ' ', series_titile)
+
+            for watch_info in watch_info_list:
                 file_stem = watch_info.title
                 file_stem = re.sub(r'[\\/:*?"<>|]', ' ', file_stem)
-                path = PRO_DIR / f'storage/data/hanime/nfo/{file_stem}.nfo'
+                path = PRO_DIR / f'storage/data/hanime/nfo/{series_titile}/{file_stem}.nfo'
                 self._save_to_nfo(watch_info=watch_info,save_path=path)
 
+                max_resolution = max(list(watch_info.download_urls.keys()),key=int)
+                download_url = watch_info.download_urls[max_resolution]
+                file_suffix = download_url.split('.')[-1].split('?')[0]
+                file_name = f'{file_stem}.{file_suffix}'
+                download_dict[file_name] =download_url
+
+
+            if download_flag:
+                logger.info(f'开始下载 "{series_titile}" 系列视频')
+                await self._download(download_dict=download_dict,series_name=series_titile)
+
+            # print(download_dict)
 
         else:
             await self.test()
 
+
+
+    async def _download(self, download_dict:Dict[str,str], series_name:str = None):
+
+        download_dir = PRO_DIR / 'storage/download/hanime'
+        if series_name:
+            download_dir = download_dir / series_name
+        download_tasks = []
+        download_progress = {}
+
+        def on_download_progress(name, downloaded, total):
+            percent = downloaded / total
+            download_progress[name] = percent
+
+            self.queue.put({
+                "status": "running",
+                "type" : "download",
+                "progress": download_progress
+
+            })
+
+        for file_name, download_url in download_dict.items():
+            file_path = download_dir / file_name
+            download_tasks.append(self.spider.download_async(url=download_url, save_path=file_path,on_progress=on_download_progress,name=file_name))
+
+
+
+        self.queue.put({
+                "status": "running",
+                "type" : "download",
+                "message": "开始下载"
+            })
+        await asyncio.gather(*download_tasks)
+        self.queue.put({
+                "status": "running",
+                "type" : "download",
+                "message": "下载完成"
+            })
 
 
     def _save_to_nfo(self,watch_info:ItemWatchInfo, save_path:Path|str = None):
@@ -381,7 +460,8 @@ class HAnimeScraper(Crawler):
             "plot": watch_info.description,
             "studio": [watch_info.artist],
             "tag": watch_info.tags,
-            "genre": [watch_info.category]
+            "genre": [watch_info.category],
+            "url": watch_info.url
         }
         emby_nfo : EmbyMovieModel = EmbyMovieModel(**model_data)
 

@@ -36,6 +36,10 @@ def start(spider_name: str, params: dict = None):
     global spider_manager
     params = params or {}
     try:
+        spider_is_running = spider_manager.is_running(spider_name)
+        if spider_is_running:
+            return {"status": "NG", "message": f"{spider_name} 已经在运行中"}
+
         task_id = spider_manager.run_spider(spider_name, **params)
         if task_id:
             return {"status": "OK", "task_id": task_id}
@@ -43,6 +47,16 @@ def start(spider_name: str, params: dict = None):
     except Exception as e:
         return {"status": "ERROR","message": f"Failed to start {spider_name}: {str(e)}"}
 
+@app.post("/stop/{spider_name}")
+def stop(spider_name: str):
+    global spider_manager
+    spider_manager.stop(spider_name)
+    return {"status": "OK", "message": f"{spider_name} 已停止"}
+
+@app.post("/stop_all")
+def stop_all():
+    global spider_manager
+    spider_manager.stop_all()
 
 @app.websocket("/ws/{task_id}")
 async def websocket_endpoint(ws: WebSocket, task_id: str):

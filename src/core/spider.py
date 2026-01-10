@@ -1,4 +1,4 @@
-from typing import List,Optional,overload,override
+from typing import List,Optional,overload,override,Callable
 import curl_cffi
 from curl_cffi import Response,AsyncSession,HeaderTypes,CookieTypes,Session
 import asyncio
@@ -60,7 +60,7 @@ class Spider:
                 return None
 
 
-    def download_sync(self, url: str, save_path: Path) -> str:
+    def download_sync(self, url: str, save_path: Path, on_progress = None) -> str:
         """同步下载（流式分块写入）"""
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -76,7 +76,7 @@ class Spider:
         logger.info(f"同步下载完成: {url} -> {save_path}")
         return str(save_path)
 
-    async def download_async(self, url: str, save_path: Path) -> str:
+    async def download_async(self, url: str, save_path: Path, on_progress : Callable[[str, int, int], None] = None, name:str = None) -> str:
         """异步下载（流式分块写入）"""
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -85,9 +85,22 @@ class Spider:
                 if resp.status_code != 200:
                     raise Exception(f"下载失败: HTTP {resp.status_code}")
 
+                total = int(resp.headers.get("Content-Length", 0))
+                downloaded = 0
                 async with aiofiles.open(save_path, "wb") as f:
                     async for chunk in resp.aiter_content(chunk_size=self.chunk_size):
                         await f.write(chunk)
+                        downloaded += len(chunk)
+
+                        if on_progress:
+                            task_name = name or url
+                            on_progress(task_name, downloaded, total)
+
+                        # if total > 0:
+                        #     percent = downloaded / total * 100
+                        #     print(f"\r下载进度: {percent:6.2f}% ({downloaded}/{total} bytes)", end="")
+                        # else:
+                        #     print(f"\r已下载: {downloaded} bytes", end="")
 
             await asyncio.sleep(1)  # 等待1秒，确保文件写入完成或者请求过快
 
