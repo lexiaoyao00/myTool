@@ -57,6 +57,7 @@ def stop(spider_name: str):
 def stop_all():
     global spider_manager
     spider_manager.stop_all()
+    return {"status": "OK", "message": "所有爬虫已停止"}
 
 @app.websocket("/ws/{task_id}")
 async def websocket_endpoint(ws: WebSocket, task_id: str):

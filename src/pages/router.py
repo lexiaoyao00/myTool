@@ -1,5 +1,5 @@
 import flet as ft
-from .page import BasePage,CommonNavBar
+from .base_page import BasePage,CommonNavBar
 from typing import Type,List,Dict
 from .naviator import Navigator
 

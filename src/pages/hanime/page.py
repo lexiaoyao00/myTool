@@ -1,5 +1,5 @@
 import flet as ft
-from ..page import BasePage
+from ..base_page import BasePage
 from ..router import register_route,Navigator
 import requests
 from functools import partial
@@ -81,7 +81,7 @@ class HanimePage(BasePage):
         json_data = {
             'scrape_type':scrape_type,
             'url':url,
-            'download':self._download_cb.value
+            'isdownload':self._download_cb.value
         }
         print(f"on_btn_click scrape_type:{scrape_type}, url:{url}")
         r = requests.post(f"http://127.0.0.1:8000/start/hanime", json=json_data)

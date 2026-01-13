@@ -1,6 +1,6 @@
 import flet as ft
 from typing import Dict, Type
-from ..page import BasePage
+from ..base_page import BasePage
 from ..router import register_route,Navigator
 from core.utils import judge_file_type,FileType
 from string import Template

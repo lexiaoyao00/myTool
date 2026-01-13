@@ -1,5 +1,5 @@
 import flet as ft
-from ..page import BasePage
+from ..base_page import BasePage
 from ..router import register_route,Navigator
 import requests
 from curl_cffi import AsyncSession

@@ -1,6 +1,6 @@
 # from .page import BasePage
 from .home import HomePage
-from .page import BasePage
+from .base_page import BasePage
 from .naviator import Navigator
 from .router import register_route,RouteManager
 

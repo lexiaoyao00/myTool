@@ -245,6 +245,7 @@ class DanbooruScraper(Crawler):
                 res_dit = {
                     "status": "success",
                     "type": "post",
+                    "post_url": url,
                     "data": item_info.model_dump()
                 }
                 self.queue.put(res_dit)

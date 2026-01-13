@@ -5,7 +5,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
 
-from pages.page import BasePage, Router
+from pages.base_page import BasePage, Router
 import flet as ft
 import asyncio
 
