@@ -14,6 +14,8 @@ import zipfile
 from core.config import PRO_DIR
 from loguru import logger
 from core.utils import zip_dir
+import shutil
+
 
 exhentai_cookies = {
     'ipb_member_id': '5663118',
@@ -168,11 +170,11 @@ class ExHentaiPost():
 
         item.rate = gd3.css('div#gdr td#rating_label::text').get()
         #taglist > table > tbody > tr:nth-child(1)
-        taglist = selector.css('#taglist > table  tr')
+        taglist_tr = selector.css('#taglist > table  tr')
         # print(taglist)
-        for tags in taglist:
+        for tags in taglist_tr:
             tag_type = tags.css('td.tc::text').get()
-            tag_list = tags.css('div.gt a::text').getall()
+            tag_list = tags.css('div a::text').getall()
             item.tags[tag_type] = tag_list
 
         item.post_link = selector.css('table.ptt a::attr(href)').get()
@@ -328,16 +330,37 @@ class ExHentaiScraper(Crawler):
         with open(self._item_save_path,'w',encoding='utf-8') as f:
             json.dump(self._saved_items,f,ensure_ascii=False,indent=4)
 
-    def comicInfo_to_cbz(self,comicInfo_content:str,cbz_path:str|Path):
-        with zipfile.ZipFile(cbz_path, 'a') as zipf:
-            # 先检查是否存在旧 ComicInfo.xml
-            try:
-                zipf.getinfo("ComicInfo.xml")
-                logger.warning(f'[WARN] {cbz_path} 已存在 ComicInfo.xml，跳过')
-            except KeyError:
-                pass
+    def comicInfo_to_cbz(self, comicInfo_content:str,cbz_path:str|Path):
+        cbz_path = Path(cbz_path)
 
-            zipf.writestr("ComicInfo.xml",comicInfo_content)
+        with zipfile.ZipFile(cbz_path, 'r') as zin:
+            has_comicinfo = any(item.filename == "ComicInfo.xml" for item in zin.infolist())
+
+        if not has_comicinfo:
+            # 没有 ComicInfo.xml，直接追加
+            mode_data = comicInfo_content
+            if isinstance(mode_data, str):
+                mode_data = mode_data.encode("utf-8")  # 确保写入的是 bytes
+            with zipfile.ZipFile(cbz_path, 'a') as zout:
+                zout.writestr("ComicInfo.xml", mode_data)
+            logger.info(f"已向 {cbz_path} 添加 ComicInfo.xml")
+
+        else:
+            # 有 ComicInfo.xml，需要重建压缩包进行替换
+            tmp_path = cbz_path.with_suffix(".tmp")
+            with zipfile.ZipFile(cbz_path, 'r') as zin, \
+                zipfile.ZipFile(tmp_path, 'w') as zout:
+                for item in zin.infolist():
+                    if item.filename != "ComicInfo.xml":
+                        filedata = zin.read(item.filename)
+                        zout.writestr(item, filedata)
+                # 写入新的 ComicInfo.xml
+                mode_data = comicInfo_content
+                if isinstance(mode_data, str):
+                    mode_data = mode_data.encode("utf-8")
+                zout.writestr("ComicInfo.xml", mode_data)
+            shutil.move(tmp_path, cbz_path)
+            logger.info(f"{cbz_path} 的 ComicInfo.xml 已替换")
 
     def _glob_cbz(self, cbz_dir:Path, recursive:bool = True):
         if recursive:
@@ -440,11 +463,11 @@ class ExHentaiScraper(Crawler):
             #     json.dump([saw_info.model_dump() for saw_info in saw_infos],f,ensure_ascii=False,indent=4)
 
             download_dir = self._download_save_dir / post_item.subtitle
-            download_tasks = [self.exhentai_saw.download_org(url=info.org_img,save_path= download_dir / info.file_name) for info in saw_infos if info is not None]
-            await asyncio.gather(*download_tasks)
+            # download_tasks = [self.exhentai_saw.download_org(url=info.org_img,save_path= download_dir / info.file_name) for info in saw_infos if info is not None]
+            # await asyncio.gather(*download_tasks)
             self._to_comicInfo(post_item,save_to_path=True,save_path=download_dir / 'ComicInfo.xml')
 
-            zip_dir(download_dir, download_dir.with_suffix('.cbz'))
+            # zip_dir(download_dir, download_dir.with_suffix('.cbz'))
 
 
 

@@ -76,7 +76,7 @@ class DanbooruPage(BasePage):
                                             keyboard_type=ft.KeyboardType.NUMBER,
                                             expand=True)
 
-        self._submit_btn = ft.ElevatedButton(text="开始爬取", on_click=self._on_submit_btn_click)
+        self._submit_btn = ft.ElevatedButton(text="开始爬取", on_click=self._on_scrape_btn_click)
 
         self._preview_gallery = PreviewGallery(runs_count=5)
 
@@ -97,7 +97,7 @@ class DanbooruPage(BasePage):
         self._post_page_url.value = url
         self.page.update()
 
-    async def _on_submit_btn_click(self,e:ft.ControlEvent):
+    async def _on_scrape_btn_click(self,e:ft.ControlEvent):
         # e.control.disabled = True
         # self.nav.navigate('/')
         self._preview_gallery.clean()
@@ -173,7 +173,7 @@ class DanbooruPage(BasePage):
                     status:str|None = msg.get('status')
 
                     if status == "success":
-                        print("=========ws recv=========")
+                        # print("=========ws recv=========")
                         # print(msg)
                         scrape_type:str = msg.get('type')
                         data:Dict = msg.get('data')
@@ -182,7 +182,7 @@ class DanbooruPage(BasePage):
                             self.page.update()
 
                     if status == 'finished':
-                        print("=========ws recv finished=========")
+                        # print("=========ws recv finished=========")
                         break
 
                     if msg is None:
@@ -215,13 +215,14 @@ class DanbooruPage(BasePage):
                     status:str|None = msg.get('status')
 
                     if status == "success":
-                        print("=========ws recv=========")
+                        # print("=========ws recv=========")
                         # print(msg)
                         scrape_type:str = msg.get('type')
                         data:Dict = msg.get('data')
                         if scrape_type == 'post':
                             # print(type(data))
-                            print(data)
+                            # print(data)
+                            logger.info(f'[Danbooru] 成功获取到 post info: {data}')
                             # self.page.open(DanbooruDetailPage(item_info=data))
                             self._cache_post_info[post_url] = data
                             self.page.session.set('danbooru_post', data)
@@ -232,18 +233,19 @@ class DanbooruPage(BasePage):
 
 
                     if status == 'finished':
-                        print("=========ws recv finished=========")
+                        # print("=========ws recv finished=========")
                         break
 
                     if msg is None:
-                        print("链接关闭")
+                        # print("链接关闭")
+                        logger.info(f'[Danbooru] 链接已关闭')
                         break
 
                         # self._preview_gallery.extent(data['data'])
                         # self.page.update()
             except Exception as e:
-                # logger.error(f'ws 接收消息时发生错误:{e}')
-                print(f'ws 接收消息时发生错误:{e}')
+                logger.error(f'[Danbooru] ws 接收消息时发生错误:{e}')
+                # print(f'ws 接收消息时发生错误:{e}')
             # data = await ws.recv_json()
             # print("=========ws recv=========")
             # print(data)

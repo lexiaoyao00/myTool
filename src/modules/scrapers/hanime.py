@@ -122,6 +122,29 @@ class HAnimeWatch:
         self.spider = spider
         self.session = session
 
+    def _parse_download_page(self,download_page_url:str):
+        if not download_page_url:
+            return None
+
+        response : Response = self.spider.syncGet(url=download_page_url,session=self.session)
+        if response is None:
+            logger.warning(f'hanime _parse_download response is None')
+            return None
+
+        selector = Selector(text=response.text)
+        download_table = selector.css('table.download-table')
+        trs = download_table.css('tr')[1:]     # 跳过表头
+        size_list = trs.css('td:nth-child(2)::text').getall()
+        download_urls = trs.css('td:nth-last-child(1) a::attr(data-url)').getall()
+
+        size_list = [re.search(r'\d+',size_str).group(0) for size_str in size_list]
+
+        # print(download_urls)
+        # print(size_list)
+
+        return {str(size):url for size,url in zip(size_list,download_urls)}
+
+
     def _parseWatchInfo(self,html:str,parse_playlist:bool=True):
         selector = Selector(text=html)
         item = {}
@@ -134,10 +157,17 @@ class HAnimeWatch:
 
         video_urls = selector.css('video source::attr(src)').getall()
         video_urls_size = selector.css('video source::attr(size)').getall()
+
         # print(video_urls)
         # print(video_urls_size)
-        item['download_urls'] = {str(size):url for size,url in zip(video_urls_size,video_urls)}
+        if video_urls:
+            item['download_urls'] = {str(size):url for size,url in zip(video_urls_size,video_urls)}
         # print(watch_urls)
+        else:
+            download_page_url = selector.css('a#downloadBtn::attr(href)').get()
+            item['download_urls'] = self._parse_download_page(download_page_url)
+
+
 
         item['artist'] = selector.css('a#video-artist-name::text').get(default='').strip()
         item['category'] = selector.css('a#video-artist-name + a::text').get(default='').strip()
@@ -170,7 +200,7 @@ class HAnimeWatch:
     def getWatchInfo(self,url:str):
         response : Response = self.spider.syncGet(url=url,session=self.session)
         if response is None:
-            logger.warning(f'hanime getWatchInfo response is None, status_code: {response.status_code}')
+            logger.warning(f'hanime getWatchInfo response is None')
             return None
 
         return self._parseWatchInfo(html=response.text)
@@ -345,14 +375,22 @@ class HAnimeScraper(Crawler):
             self._save_to_nfo(watch_info=watch_info,save_path=path)
 
             if download_flag:
-                max_resolution = max(list(watch_info.download_urls.keys()),key=int)
-                download_url = watch_info.download_urls[max_resolution]
-                file_suffix = download_url.split('.')[-1].split('?')[0]
-                file_name = f'{file_stem}.{file_suffix}'
-                download_dict[file_name] =download_url
+                if watch_info.download_urls is None or len(watch_info.download_urls) == 0:
+                    logger.warning(f'{watch_info.title} download_urls is None or empty: {watch_info.model_dump(exclude_unset=True)}')
+                    self.queue.put({
+                        "status": "failed",
+                        "type" : "watch",
+                        "message": "下载链接为空"
+                    })
+                else:
+                    max_resolution = max(list(watch_info.download_urls.keys()),key=int)
+                    download_url = watch_info.download_urls[max_resolution]
+                    file_suffix = download_url.split('.')[-1].split('?')[0]
+                    file_name = f'{file_stem}.{file_suffix}'
+                    download_dict[file_name] =download_url
 
-                logger.info(f'开始下载 "{watch_info.title}" 视频文件')
-                await self._download(download_dict=download_dict,series_name=series_titile)
+                    logger.info(f'开始下载 "{watch_info.title}" 视频文件')
+                    await self._download(download_dict=download_dict,series_name=series_titile)
 
             self.queue.put({
                 "status": "success",
@@ -397,6 +435,11 @@ class HAnimeScraper(Crawler):
                 path = PRO_DIR / f'storage/data/hanime/nfo/{series_titile}/{file_stem}.nfo'
                 self._save_to_nfo(watch_info=watch_info,save_path=path)
 
+
+                if watch_info.download_urls is None or len(watch_info.download_urls) == 0:
+                    logger.warning(f'{watch_info.title} download_urls is None or empty:{watch_info.model_dump(exclude_unset=True)}')
+                    continue
+
                 max_resolution = max(list(watch_info.download_urls.keys()),key=int)
                 download_url = watch_info.download_urls[max_resolution]
                 file_suffix = download_url.split('.')[-1].split('?')[0]
@@ -429,7 +472,7 @@ class HAnimeScraper(Crawler):
 
             self.queue.put({
                 "status": "running",
-                "type" : "download",
+                "type" : "downloading",
                 "progress": download_progress
 
             })
@@ -442,13 +485,14 @@ class HAnimeScraper(Crawler):
 
         self.queue.put({
                 "status": "running",
-                "type" : "download",
-                "message": "开始下载"
+                "type" : "download_start",
+                "message": "开始下载",
+                "data": list(download_dict.keys())
             })
         await asyncio.gather(*download_tasks)
         self.queue.put({
                 "status": "running",
-                "type" : "download",
+                "type" : "download_end",
                 "message": "下载完成"
             })
 

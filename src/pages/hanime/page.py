@@ -3,8 +3,9 @@ from ..page import BasePage
 from ..router import register_route,Navigator
 import requests
 from functools import partial
+import asyncio
 
-from typing import Dict
+from typing import Dict,List
 from curl_cffi import AsyncSession
 from loguru import logger
 
@@ -15,9 +16,12 @@ class HanimePage(BasePage):
         self.page.title = "Hanime"
         self._search_url_tf = ft.TextField(label="search url")
         self._watch_url_tf = ft.TextField(label="watch url")
-        self._progress_column = ft.Column(
-            alignment = ft.MainAxisAlignment.END,
+        self._progress_controls:Dict[str,ft.Control] = {}
+        self._progress_view = ft.ListView(
             expand=True,
+            spacing=5,
+            padding=10,
+            auto_scroll=False,
         )
         self._download_cb = ft.Checkbox(label="抓取 watch 或 series 信息后下载", value=False)
         self._column = ft.Column(
@@ -40,16 +44,26 @@ class HanimePage(BasePage):
                 ),
 
 
-                self._progress_column,
+                self._progress_view,
             ],
         )
 
     def _progress_bar_view(self, progress:Dict[str,float]):
-        self._progress_column.controls.clear()
+        # self._progress_column.controls.clear()
         for name, percent in progress.items():
-            self._progress_column.controls.append(ft.Text(value=f"{name}:{percent * 100:.2f}%"))
-            self._progress_column.controls.append(ft.ProgressBar(value=percent,expand=True,height=20))
+            self._progress_controls[f'{name}_txt'].value = f"{name}:{percent * 100:.2f}%"
+            self._progress_controls[f'{name}_bar'].value = percent
 
+        # self._progress_column.controls = list(self._progress_controls.values())
+        self.page.update()
+
+    def _append_progress_bar_view(self, files:List[str]):
+        self._progress_controls.clear()
+        for file in files:
+            self._progress_controls[f'{file}_txt'] = ft.Text(value=f"{file}:0.00%")
+            self._progress_controls[f'{file}_bar'] = ft.ProgressBar(value=0,expand=True,height=20)
+
+        self._progress_view.controls = list(self._progress_controls.values())
         self.page.update()
 
 
@@ -113,9 +127,20 @@ class HanimePage(BasePage):
                         break
 
                     if status == 'running':
-                        progress = msg.get('progress')
-                        if progress:
-                            self._progress_bar_view(progress)
+                        spider_type = msg.get('type','')
+                        if spider_type == 'download_start':
+                            logger.info(f"task '{task_id}' 开始下载")
+                            data:List[str] = msg.get('data',[])
+                            self._append_progress_bar_view(data)
+                        elif spider_type == 'download_end':
+                            logger.info(f"task '{task_id}' 下载完成")
+                        elif spider_type == 'downloading':
+                            # logger.info(f"task '{task_id}' 下载中")
+                            progress = msg.get('progress')
+                            if progress:
+                                self._progress_bar_view(progress)
+
+
 
 
                     if msg is None or ws.closed:
@@ -130,7 +155,9 @@ class HanimePage(BasePage):
             # data = await ws.recv_json()
             # print("=========ws recv=========")
             # print(data)
+            await asyncio.sleep(1)
             await ws.close()
+            logger.debug(f"task '{task_id}' WebSocket end in Hanime")
             # self._progress_column.controls.clear()
             self.page.update()
 

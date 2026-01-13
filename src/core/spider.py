@@ -7,7 +7,7 @@ from pathlib import Path
 import aiofiles
 
 class Spider:
-    def __init__(self,headers:HeaderTypes=None, cookies:CookieTypes=None, chunk_size:int = 1024*1024*10):
+    def __init__(self,headers:HeaderTypes=None, cookies:CookieTypes=None, chunk_size:int = 1024*1024*10, max_concurrent:int = 5):
         """
         :param headers: 请求头字典
         :param chunk_size: 每次写入的分块大小（字节），默认 1MB
@@ -16,7 +16,8 @@ class Spider:
         self.cookies = cookies
         self.chunk_size = chunk_size
         self.impersonate='chrome'
-
+        self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.async_session = AsyncSession(max_clients=10)
 
     def syncGet(self, url:str, session:Session = None):
         if session is None:
@@ -36,28 +37,28 @@ class Spider:
 
 
     async def asyncGet(self, url:str):
-        async with AsyncSession() as s:
-            task = s.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate,allow_redirects=True)
-            try:
-                result:Response = await task
-                return result
-            except Exception as e:
-                logger.error(f"Failed to scrape, error: {e}")
-                return None
+        # async with AsyncSession() as s:
+        task = self.async_session.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate,allow_redirects=True)
+        try:
+            result:Response = await task
+            return result
+        except Exception as e:
+            logger.error(f"Failed to scrape, error: {e}")
+            return None
 
     async def asyncGetMulties(self, urls:List[str],max_workers:int = 10):
-        async with AsyncSession(max_clients=max_workers) as s:
-            tasks = []
-            for url in urls:
-                task = s.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate)
-                tasks.append(task)
+        # async with AsyncSession(max_clients=max_workers) as s:
+        tasks = []
+        for url in urls:
+            task = self.async_session.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate)
+            tasks.append(task)
 
-            try:
-                results:List[Response] = await asyncio.gather(*tasks)
-                return results
-            except Exception as e:
-                logger.error(f"Failed to scrape, error: {e}")
-                return None
+        try:
+            results:List[Response] = await asyncio.gather(*tasks)
+            return results
+        except Exception as e:
+            logger.error(f"Failed to scrape, error: {e}")
+            return None
 
 
     def download_sync(self, url: str, save_path: Path, on_progress = None) -> str:
@@ -66,7 +67,9 @@ class Spider:
 
         resp = curl_cffi.get(url, headers=self.headers, stream=True)
         if resp.status_code != 200:
-            raise Exception(f"下载失败: HTTP {resp.status_code}")
+            # raise Exception(f"下载失败: HTTP {resp.status_code}")
+            logger.error(f"下载 {save_path} 失败: HTTP {resp.status_code}")
+            return None
 
         with open(save_path, "wb") as f:
             for chunk in resp.iter_content(chunk_size=self.chunk_size):
@@ -78,12 +81,15 @@ class Spider:
 
     async def download_async(self, url: str, save_path: Path, on_progress : Callable[[str, int, int], None] = None, name:str = None) -> str:
         """异步下载（流式分块写入）"""
-        save_path.parent.mkdir(parents=True, exist_ok=True)
+        async with self.semaphore:
+            save_path.parent.mkdir(parents=True, exist_ok=True)
 
-        async with AsyncSession(max_clients=5) as session:
-            async with session.stream("GET", url, headers=self.headers) as resp:
+            # async with AsyncSession(max_clients=5) as session:
+            async with self.async_session.stream("GET", url, headers=self.headers) as resp:
                 if resp.status_code != 200:
-                    raise Exception(f"下载失败: HTTP {resp.status_code}")
+                    # raise Exception(f"下载失败: HTTP {resp.status_code}")
+                    logger.error(f"下载 {save_path} 失败: HTTP {resp.status_code}")
+                    return None
 
                 total = int(resp.headers.get("Content-Length", 0))
                 downloaded = 0
@@ -96,16 +102,10 @@ class Spider:
                             task_name = name or url
                             on_progress(task_name, downloaded, total)
 
-                        # if total > 0:
-                        #     percent = downloaded / total * 100
-                        #     print(f"\r下载进度: {percent:6.2f}% ({downloaded}/{total} bytes)", end="")
-                        # else:
-                        #     print(f"\r已下载: {downloaded} bytes", end="")
-
             await asyncio.sleep(1)  # 等待1秒，确保文件写入完成或者请求过快
 
-        logger.info(f"异步下载完成: {url} -> {save_path}")
-        return str(save_path)
+            logger.info(f"异步下载完成: {url} -> {save_path}")
+            return str(save_path)
 
 
     def download(self, url: str, save_path: str|Path, async_mode: bool | None = None):

@@ -114,7 +114,7 @@ class SpiderManager():
                     del self.task_queues[task_id]
     def _cleanup_task_processes(self):
         while True:
-            time.sleep(1)  # 每秒检查一次
+            time.sleep(5)  # 隔段时间检查一次
             for name in list(self._processes.keys()):
                 p = self._processes[name]
                 if not p.is_alive():

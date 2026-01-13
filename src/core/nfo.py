@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List,Literal
 from pathlib import Path
 import xmltodict
 
@@ -24,9 +24,11 @@ class EmbyMovieModel(BaseModel):
     url : str = None  # 链接
 
 
+NFO_TYPE = Literal['movie','episodedetails']
+
 class NFO:
-    def save_emby_move(self, emby_movie: EmbyMovieModel, save_path: Path|str):
-        data = {'movie':emby_movie.model_dump(exclude_unset=True)}
+    def save_emby_move(self, emby_movie_data: EmbyMovieModel, save_path: Path|str, nfo_type:NFO_TYPE = 'movie'):
+        data = {nfo_type:emby_movie_data.model_dump(exclude_unset=True)}
         xml_str = xmltodict.unparse(data, pretty=True)
 
         path = Path(save_path)

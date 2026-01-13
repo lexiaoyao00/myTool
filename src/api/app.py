@@ -77,7 +77,7 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
                 if msg.get("status") == "finished":
                     # 任务结束，清理队列
                     logger.info(f"任务 {task_id} 结束")
-                    spider_manager.task_queues.pop(task_id, None)
+                    # spider_manager.task_queues.pop(task_id, None)
                     # await ws.close()
                     return
 
@@ -86,8 +86,9 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
     except Exception:
         # 连接中断也可以清理
         logger.error(f"任务 {task_id} 连接中断")
-        if task_id in spider_manager.task_queues:
-            spider_manager.task_queues.pop(task_id, None)
+        ws.send_json({"status": "error", "message": f"任务 {task_id} 连接中断"})
+        # if task_id in spider_manager.task_queues:
+        #     spider_manager.task_queues.pop(task_id, None)
 
 
 def run_api():
