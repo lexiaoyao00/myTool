@@ -2,8 +2,8 @@ import flet as ft
 from ..base_page import BasePage
 from ..router import register_route,Navigator
 import requests
-from curl_cffi import AsyncSession
 from typing import Callable, List, Dict
+from functools import partial
 
 
 @register_route("/exhentai")
@@ -27,88 +27,26 @@ class ExhentaiPage(BasePage):
                 self._page_url,
                 self._post_url,
                 self._saw_url,
-                ft.ElevatedButton(text='page',on_click=self.test_page),
-                ft.ElevatedButton(text='post',on_click=self.test_post),
-                ft.ElevatedButton(text='saw',on_click=self.test_saw),
-                ft.ElevatedButton(text='metadata',on_click=self.test_metadata),
+                ft.ElevatedButton(text='page',on_click=partial(self.start_scrape,scrape_type='page',url=self._page_url.value)),
+                ft.ElevatedButton(text='post',on_click=partial(self.start_scrape,scrape_type='post',url=self._post_url.value)),
+                ft.ElevatedButton(text='saw',on_click=partial(self.start_scrape,scrape_type='saw',url=self._saw_url.value)),
+                ft.ElevatedButton(text='metadata',on_click=partial(self.start_scrape,scrape_type='metadata')),
             ],
         )
 
-    async def test_saw(self,e:ft.ControlEvent):
-        # e.control.disabled = True
-        # self.nav.navigate('/')
-        r = requests.post(f"http://127.0.0.1:8000/start/exhentai", json={
-            'scrape_type':'saw',
-            'url': self._saw_url.value
-            })
+    async def start_scrape(self,e:ft.ControlEvent, scrape_type:str, url:str=None):
+        res_json = self.interact.start_spider(name='exhentai', json_data={
+            'scrape_type':scrape_type,
+            'url':url
+        })
 
+        if res_json.get('status'):
+            if res_json.get('status') in ['NG','ERROR']:
+                self.page.open(ft.AlertDialog(
+                    title='Error',
+                    content=ft.Text(res_json.get('message')),
+                ))
 
-    async def test_metadata(self,e:ft.ControlEvent):
-        # e.control.disabled = True
-        # self.nav.navigate('/')
-        r = requests.post(f"http://127.0.0.1:8000/start/exhentai", json={
-            'scrape_type':'metadata',
-            })
-
-    async def test_page(self,e:ft.ControlEvent):
-        # e.control.disabled = True
-        # self.nav.navigate('/')
-        r = requests.post(f"http://127.0.0.1:8000/start/exhentai", json={
-            'scrape_type':'page',
-            'url': self._page_url.value
-            })
-
-    async def test_post(self,e:ft.ControlEvent):
-        # e.control.disabled = True
-        # self.nav.navigate('/')
-        r = requests.post(f"http://127.0.0.1:8000/start/exhentai", json={
-            'scrape_type':'post',
-            'url': self._post_url.value
-            })
-        # print(r.json())
-
-        # await self.listen_ws(r.json()['task_id'])
-
-
-    async def search(self,e:ft.ControlEvent):
-        # e.control.disabled = True
-        # self.nav.navigate('/')
-        r = requests.post(f"http://127.0.0.1:8000/start/hanime", json={'scrape_type':'search'})
-        print(r.json())
-
-        await self.listen_ws(r.json()['task_id'])
-
-
-    async def listen_ws(self,task_id):
-        async with AsyncSession() as session:
-            ws = await session.ws_connect(f"ws://127.0.0.1:8000/ws/{task_id}")
-
-            try:
-                while True:
-                    msg:Dict = await ws.recv_json()
-                    status:str|None = msg.get('status')
-
-                    # if status == "success":
-                    print("=========ws recv=========")
-                    print(msg)
-
-                    if status == 'finished':
-                        print("=========ws recv finished=========")
-                        break
-
-                    if msg is None:
-                        print("链接关闭")
-                        break
-
-                        # self._preview_gallery.extent(data['data'])
-                        # self.page.update()
-            except Exception as e:
-                # logger.error(f'ws 接收消息时发生错误:{e}')
-                print(f'ws 接收消息时发生错误:{e}')
-            # data = await ws.recv_json()
-            # print("=========ws recv=========")
-            # print(data)
-            await ws.close()
 
     def build(self) -> ft.View:
         return ft.View(
