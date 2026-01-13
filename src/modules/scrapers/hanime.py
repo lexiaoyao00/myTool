@@ -337,7 +337,7 @@ class HAnimeScraper(Crawler):
 
         elif scrape_type == 'watch':
             url = kwargs.get('url')
-            download_flag = kwargs.get('download',False)
+            download_flag = kwargs.get('isdownload',False)
             if not url:
                 logger.warning('hanime run watch url is None')
                 self.queue.put({

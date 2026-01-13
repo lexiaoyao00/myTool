@@ -36,7 +36,6 @@ class HanimePage(BasePage):
                 ft.Row(
                     alignment = ft.MainAxisAlignment.START,
                     controls = [
-                        # ft.ElevatedButton(text='test',on_click=self.test),
                         ft.ElevatedButton(text='search',on_click=partial(self.on_btn_click, scrape_type='search')),
                         ft.ElevatedButton(text='watch',on_click=partial(self.on_btn_click, scrape_type='watch')),
                         ft.ElevatedButton(text='series',on_click=partial(self.on_btn_click, scrape_type='series')),
@@ -49,12 +48,10 @@ class HanimePage(BasePage):
         )
 
     def _progress_bar_view(self, progress:Dict[str,float]):
-        # self._progress_column.controls.clear()
         for name, percent in progress.items():
             self._progress_controls[f'{name}_txt'].value = f"{name}:{percent * 100:.2f}%"
             self._progress_controls[f'{name}_bar'].value = percent
 
-        # self._progress_column.controls = list(self._progress_controls.values())
         self.page.update()
 
     def _append_progress_bar_view(self, files:List[str]):
@@ -83,83 +80,27 @@ class HanimePage(BasePage):
             'url':url,
             'isdownload':self._download_cb.value
         }
-        print(f"on_btn_click scrape_type:{scrape_type}, url:{url}")
-        r = requests.post(f"http://127.0.0.1:8000/start/hanime", json=json_data)
-        print(r.json())
-        res_json = r.json()
+        res_json = self.interact.start_spider(name='hanime',json_data=json_data)
         if res_json['status'] in ['NG','ERROR']:
             self.page.open(ft.AlertDialog(content=ft.Text(value=res_json['message'])))
             return
 
-        await self.listen_ws(r.json()['task_id'])
-
-    async def test(self,e:ft.ControlEvent):
-        # e.control.disabled = True
-        # self.nav.navigate('/')
-        r = requests.post(f"http://127.0.0.1:8000/start/hanime", json={'scrape_type':'test'})
-        print(r.json())
-
-        await self.listen_ws(r.json()['task_id'])
+        await self.listen_ws(res_json['task_id'])
 
 
-    async def listen_ws(self,task_id):
-        logger.info(f"task '{task_id}' WebSocket start in Hanime")
-        async with AsyncSession() as session:
-            ws = await session.ws_connect(f"ws://127.0.0.1:8000/ws/{task_id}")
-
-            try:
-                while True:
-                    msg:Dict = await ws.recv_json()
-                    status:str = msg.get('status','')
-
-                    # if status == "success":
-                    # print("=========ws recv=========")
-                    # print(msg)
-
-                    if status == 'finished':
-                        # print("=========ws recv finished=========")
-                        logger.info(f"task '{task_id}' 结束")
-                        break
-
-                    if status in ['failed','error']:
-                        logger.error(f"task '{task_id}' WebSocket error:{msg['message']}")
-                        self.page.open(ft.AlertDialog(title='ERROR',content=ft.Text(value=msg['message'])))
-                        break
-
-                    if status == 'running':
-                        spider_type = msg.get('type','')
-                        if spider_type == 'download_start':
-                            logger.info(f"task '{task_id}' 开始下载")
-                            data:List[str] = msg.get('data',[])
-                            self._append_progress_bar_view(data)
-                        elif spider_type == 'download_end':
-                            logger.info(f"task '{task_id}' 下载完成")
-                        elif spider_type == 'downloading':
-                            # logger.info(f"task '{task_id}' 下载中")
-                            progress = msg.get('progress')
-                            if progress:
-                                self._progress_bar_view(progress)
-
-
-
-
-                    if msg is None or ws.closed:
-                        logger.info(f"task '{task_id}' 链接关闭")
-                        break
-
-                        # self._preview_gallery.extent(data['data'])
-                        # self.page.update()
-            except Exception as e:
-                logger.error(f'ws 接收消息时发生错误:{e}')
-                # print(f'ws 接收消息时发生错误:{e}')
-            # data = await ws.recv_json()
-            # print("=========ws recv=========")
-            # print(data)
-            await asyncio.sleep(1)
-            await ws.close()
-            logger.debug(f"task '{task_id}' WebSocket end in Hanime")
-            # self._progress_column.controls.clear()
-            self.page.update()
+    async def on_status_running(self, msg:Dict):
+        # return await super().on_status_running(msg)
+        spider_type = msg.get('type','')
+        if spider_type == 'download_start':
+            logger.info(f"Hanime 开始下载")
+            data:List[str] = msg.get('data',[])
+            self._append_progress_bar_view(data)
+        elif spider_type == 'download_end':
+            logger.info(f"Hanime 下载完成")
+        elif spider_type == 'downloading':
+            progress = msg.get('progress')
+            if progress:
+                self._progress_bar_view(progress)
 
     def build(self) -> ft.View:
         return ft.View(
