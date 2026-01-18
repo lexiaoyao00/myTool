@@ -1,11 +1,12 @@
-from fastapi import FastAPI,WebSocket
+from fastapi import FastAPI,WebSocket,WebSocketDisconnect
 from modules import (
     SpiderManager,
     DanbooruScraper,
     Laowang,
     HAnimeScraper,
     SSTM,
-    ExHentaiScraper)
+    ExHentaiScraper,
+    MissavScraper)
 import asyncio
 from loguru import logger
 
@@ -23,9 +24,10 @@ async def init():
     spider_manager.register("hanime", HAnimeScraper)
     spider_manager.register("sstm", SSTM)
     spider_manager.register("exhentai", ExHentaiScraper)
+    spider_manager.register("missav", MissavScraper)
 
     spdiers = {
-        '爬虫': ["danbooru", "hanime","exhentai"],
+        '爬虫': ["danbooru", "hanime","exhentai", "missav"],
         '签到': ["laowang", "sstm"]
     }
 
@@ -66,7 +68,7 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
     q = spider_manager.task_queues.get(task_id)
     if q is None:
         logger.warning(f"任务 {task_id} 不存在")
-        await ws.send_text("任务不存在或已结束")
+        await ws.send_json({"status": "error", "message": f"任务 {task_id} 不存在"})
         await ws.close()
         return
 
@@ -80,10 +82,13 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
                     logger.info(f"任务 {task_id} 结束")
                     # spider_manager.task_queues.pop(task_id, None)
                     # await ws.close()
-                    return
+                    break
 
 
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        logger.info(f"任务 {task_id} 的客户端关闭ws连接")
+
     except Exception:
         # 连接中断也可以清理
         logger.error(f"任务 {task_id} 连接中断")

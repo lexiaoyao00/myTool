@@ -222,7 +222,7 @@ class DanbooruScraper(Crawler):
 
         if scrape_type == 'page':
             url = kwargs.get('url')
-            if url is None:
+            if not url:
                 self.queue.put({"status": "error", "message": "Page url is None"})
                 return
             start_page = kwargs.get('start_page') or 1
@@ -236,7 +236,7 @@ class DanbooruScraper(Crawler):
             self.queue.put(res_dit)
         elif scrape_type == 'post':
             url = kwargs.get('url')
-            if url is None:
+            if not url:
                 self.queue.put({"status": "error", "message": "Post url is None"})
                 return
 
@@ -305,7 +305,9 @@ class DanbooruScraper(Crawler):
             return await self.scrapeHotPost(start_page,scrape_page_count)
 
         danbooru_page = DanbooruPage(self.spider)
-        return await danbooru_page.getPostsWithPreImgStartPage(str(url),scrape_page_count)
+        page_url = URL(url)
+        page_url = page_url.update_query(page=start_page)
+        return await danbooru_page.getPostsWithPreImgStartPage(str(page_url),scrape_page_count)
 
     async def scrapeHotPost(self, start_page:int =  1, scrape_page_count:int = 1):
         danbooru_page = DanbooruPage(self.spider)

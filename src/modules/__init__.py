@@ -11,4 +11,5 @@ __all__ = [
     "testHAnime",
     "test_laowang",
     "testSSTM",
+    "MissavScraper",
 ]

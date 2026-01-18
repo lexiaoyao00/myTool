@@ -116,6 +116,9 @@ class HomePage(BasePage):
 
 
     def build(self) -> ft.View:
+        if self.has_build:
+            return self._view
+
         if not isinstance(self.spiders, dict):
             self.page.open(ft.AlertDialog(
                 title=ft.Text("提示"),
@@ -129,9 +132,6 @@ class HomePage(BasePage):
                     self._tabs,
                 ]
             )
-
-        if self.has_build:
-            return self._view
 
 
         # print(self.spiders)

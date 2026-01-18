@@ -45,21 +45,12 @@ class FileType(enum.Enum):
 
 def judge_file_type(file_path:str) -> FileType|str:
     file_suffix = file_path.split('.')[-1].lower()
-    if file_suffix in ['jpg','jpeg','png','gif']:
+    if file_suffix in ['jpg','jpeg','png','gif','webp']:
         return FileType.IMAGE
     elif file_suffix in ['mp4','webm','mkv']:
         return FileType.VIDEO
     else:
         return file_suffix
-
-class CommandType(enum.Enum):
-    START = 'start'
-    STOP = 'stop'
-
-class TopicName(enum.Enum):
-    SPIDER = 'spider'
-    LOGIN = 'login'
-
 
 def curl_cffi_cookies_to_playwright(curl_cookies: Dict[str, str], domain: str) -> List[Dict]:
     """

@@ -7,27 +7,6 @@ import uuid
 import time
 import threading
 
-# class InteractionResPub(ABC):
-#     """交互响应发布者"""
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-#         self._responder = Responder()
-#         self._publisher = Publisher()
-#         # self._handle_message : Callable[[Any],Any] = None
-
-#     # def set_handler(self, handler: Callable[[Any], Any]):
-#     #     self._handle_message = handler
-
-#     @abstractmethod
-#     def handle_request(data):
-#         raise NotImplementedError
-
-#     def publish(self, topic: str, data: Any):
-#         self._publisher.publish(topic, data)
-
-#     def start_listening(self):
-#         self._responder.start(self.handle_request)
-
 
 class SpiderManager():
     """
@@ -43,7 +22,7 @@ class SpiderManager():
         self._registry: Dict[str, Type[Crawler]] = {}
         # 保存正在运行的爬虫进程{name: Process对象}
         self._processes: Dict[str, multiprocessing.Process] = {}
-        self.task_queues = {}
+        self.task_queues : Dict[str,multiprocessing.Queue] = {}
 
         threading.Thread(target=self._cleanup_task_queues, daemon=True).start()
         threading.Thread(target=self._cleanup_task_processes, daemon=True).start()
@@ -54,7 +33,7 @@ class SpiderManager():
 
     # ------- 注册相关 -------
     def register(self, name: str, target: Type[Crawler]):
-        """注册爬虫函数，自动检测是否是协程"""
+        """注册爬虫类"""
         if name in self._registry:
             raise ValueError(f"爬虫 {name} 已注册")
 

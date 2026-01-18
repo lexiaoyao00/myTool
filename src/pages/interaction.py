@@ -66,8 +66,16 @@ class InteractSpider:
 
             except Exception as e:
                 logger.error(f'ws 接收消息时发生错误:{e}')
-            await asyncio.sleep(1)
-            await ws.close()
-            logger.debug(f"task '{task_id}' WebSocket 已经关闭")
-            # self._ws_stop_flag[task_id] = False
-            del self._ws_stop_flag[task_id]
+            finally:
+                if not ws.closed:
+                    logger.debug(f"task '{task_id}' WebSocket 正在关闭")
+                    await asyncio.sleep(0.1)
+                    try:
+                        await ws.close()
+                    except asyncio.InvalidStateError:
+                        # 连接可能已经被内部事件回调关闭，忽略异常
+                        logger.debug(f"task '{task_id}' WebSocket 关闭时状态无效（已被内部关闭）")
+                    await asyncio.sleep(0.1)
+                    logger.debug(f"task '{task_id}' WebSocket 已经关闭")
+                # self._ws_stop_flag[task_id] = False
+                del self._ws_stop_flag[task_id]

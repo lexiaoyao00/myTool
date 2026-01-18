@@ -41,6 +41,7 @@ class BasePage(ABC):
         'error': self.on_status_failed,
         'running': self.on_status_running,
         'success': self.on_status_success,
+        'finished': self.on_status_finished,
     }
 
     def common_navbar(self, title: str):
@@ -64,6 +65,10 @@ class BasePage(ABC):
 
     async def on_status_success(self, msg: Dict):
         """处理任务成功"""
+        pass
+
+    async def on_status_finished(self, msg: Dict):
+        """处理爬虫任务结束"""
         pass
 
     async def handle_ws_msg(self, msg: Dict):
