@@ -505,7 +505,7 @@ class HAnimeScraper(Crawler):
             "studio": [watch_info.artist],
             "tag": watch_info.tags,
             "genre": [watch_info.category],
-            "url": watch_info.url
+            "website": watch_info.url
         }
         emby_nfo : EmbyMovieModel = EmbyMovieModel(**model_data)
 

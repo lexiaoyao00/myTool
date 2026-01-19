@@ -41,7 +41,7 @@ class EmbyMovieModel(BaseModel):
     fanart : str = None  # 海报背景
     thumb : str = None  # 缩略图
 
-    url : str = None  # 链接
+    website : str = None  # 链接
 
 
 NFO_TYPE = Literal['movie','episodedetails','tvshow']

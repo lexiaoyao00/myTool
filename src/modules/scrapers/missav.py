@@ -1,10 +1,11 @@
 from ..crawler import Crawler
-
-from curl_cffi import Session
+from typing import List
+from curl_cffi import Session,Response
 from core.spider import Spider
-
+from parsel import Selector
 from yarl import URL
-
+from loguru import logger
+from pydantic import BaseModel
 
 
 missav_cookies = {
@@ -44,6 +45,19 @@ missav_headers = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
 }
 
+class ItemSearchResult(BaseModel):
+    title: str
+    url: str
+    pre_img: str
+
+class ItemWatchInfo(BaseModel):
+    pass
+
+class MissavWatch:
+    def __init__(self,spider:Spider,session:Session):
+        self.spider = spider
+        self.session = session
+
 
 class MissavSearch:
     def __init__(self,spider:Spider,session:Session):
@@ -51,9 +65,42 @@ class MissavSearch:
         self.session = session
         self.base_url = 'https://missav.ws/cn/search'
 
-    def getPostPreviews(self,query:str):
+
+    def _parseSearchResults(self,html:str):
+        sel = Selector(text=html)
+        posts_sel = sel.css('div.relative.rounded.overflow-hidden.shadow-lg a:first-child')
+        if not posts_sel:
+            return None
+
+
+        items : List[ItemSearchResult] = []
+        for post_sel in posts_sel:
+            url = post_sel.css('::attr(href)').get()
+            title = post_sel.css('img::attr(alt)').get()
+            pre_img = post_sel.css('img::attr(data-src)').get()
+            item = ItemSearchResult(
+                title = title,
+                url = url,
+                pre_img = pre_img
+            )
+            items.append(item)
+
+        return items
+
+    async def getPostPreviews(self,query:str):
         search_url = URL(self.base_url) / query
-        print(search_url)
+        # print(search_url)
+        res:Response = await self.spider.asyncGet(str(search_url))
+        if res is None:
+            logger.error(f"[MissavSearch] {search_url} failed to get response")
+            return None
+
+        if res.status_code == 404:
+            logger.error(f"[MissavSearch] {search_url} not found")
+            return None
+
+        return self._parseSearchResults(res.text)
+
 
 class MissavScraper(Crawler):
     def __init__(self, **kwargs):
@@ -65,15 +112,47 @@ class MissavScraper(Crawler):
         )
 
         self._searcher = MissavSearch(self.spider,self.session)
+        self._watcher = MissavWatch(self.spider,self.session)
 
     async def run(self, **kwargs):
 
         scrape_type = kwargs.get('scrape_type')
 
         if scrape_type == 'search':
-            print("searching")
+            query = kwargs.get('query','')
+            items = await self._searcher.getPostPreviews(query)
+            if not items:
+                logger.error(f"[MissavScraper] {query} not found")
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "search",
+                    "message": f"搜索 {query} 未爬取到信息"
+                })
+                return
+            if len(items) > 2:
+                logger.warning(f"[MissavScraper] {query} search result more than 2")
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "search",
+                    "message": f"搜索 {query} 爬取到超过2条信息,请检查番号是否正确"
+                })
+            res_list = [item.model_dump() for item in items]
+            self.queue.put({
+                "status": "success",
+                "type" : "search",
+                "data":res_list,
+            })
+            logger.info(f"[MissavScraper] {query} search success")
         else:
-            self.test()
+            await self.test()
 
-    def test(self):
-        self._searcher.getPostPreviews('test')
+    async def test(self):
+        items = await self._searcher.getPostPreviews('mide-565')
+        if not items:
+            print('no items')
+
+        for item in items:
+            print(item.title)
+            print(item.网址)
+            print(item.预览图)
+            print('---')

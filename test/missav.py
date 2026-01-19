@@ -39,7 +39,8 @@ headers = {
 
 
 search_url = 'https://missav.ws/dm139/cn/tags/%E5%8E%9F%E5%A7%8B%E8%A7%86%E9%A2%91'
-url = 'https://missav.ws/dm504/cn/031523-001'
+# url = 'https://missav.ws/dm504/cn/031523-001'
+url = 'https://missav.ws/cn/search/mide-565'
 response = curl_cffi.get(url=url, headers=headers, cookies=cookies, impersonate='chrome',allow_redirects=True)
 
 
