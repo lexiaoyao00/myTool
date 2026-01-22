@@ -1,12 +1,11 @@
 
 
-from core.config import ConfigManager
-from pathlib import Path
+from core.config import ConfigManager,PRO_DIR
 
 config_manaer = ConfigManager()
 
-download_path = config_manaer.getConfig('config/path.toml').get('download_path')
-data_path = config_manaer.getConfig('config/path.toml').get('data_path')
+download_path = PRO_DIR / config_manaer.getConfig('config/path.toml').get('download_path')
+data_path = PRO_DIR / config_manaer.getConfig('config/path.toml').get('data_path')
 
 
 

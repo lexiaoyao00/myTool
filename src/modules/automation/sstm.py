@@ -127,22 +127,3 @@ class SSTM(Crawler):
 
 
 
-def testSSTM():
-    sstm = SSTM()
-    # print(sstm.checkInLink())
-    link = sstm.checkInLink()
-    print('登录链接：')
-    print(link)
-
-    email = '2950848462@qq.com'
-    passwd = 'xc1290435868+'
-
-    asyncio.run(sstm.autoCheckIn(checkInLink=link,email=email,passwd=passwd))
-
-
-
-
-if __name__ == '__main__':
-    testSSTM()
-
-

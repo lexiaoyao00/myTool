@@ -129,13 +129,13 @@ class MissavScraper(Crawler):
                     "message": f"搜索 {query} 未爬取到信息"
                 })
                 return
-            if len(items) > 2:
-                logger.warning(f"[MissavScraper] {query} search result more than 2")
-                self.queue.put({
-                    "status": "failed",
-                    "type" : "search",
-                    "message": f"搜索 {query} 爬取到超过2条信息,请检查番号是否正确"
-                })
+            # if len(items) > 2:
+            #     logger.warning(f"[MissavScraper] {query} search result more than 2")
+            #     self.queue.put({
+            #         "status": "failed",
+            #         "type" : "search",
+            #         "message": f"搜索 {query} 爬取到超过2条信息,请检查番号是否正确"
+            #     })
             res_list = [item.model_dump() for item in items]
             self.queue.put({
                 "status": "success",

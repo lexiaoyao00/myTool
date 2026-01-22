@@ -129,6 +129,14 @@ class DanbooruPage(BasePage):
             'scrape_page_count':int(self._scrape_page_count.value),
         }
         res_json = self.interact.start_spider(name='danbooru', json_data=json_data)
+        if res_json['status'] in ["NG", "ERROR"]:
+            logger.error(f'start danbooru task failed, msg:{res_json["message"]}')
+            self.page.open(ft.AlertDialog(
+                title="警告",
+                content=ft.Text(f"爬取失败:{res_json['message']}"),
+            ))
+            return
+
         if res_json['status'] == 'OK':
             logger.info(f'start danbooru task success, task_id:{res_json["task_id"]}')
             # self.nav.navigate('/danbooru/preview')

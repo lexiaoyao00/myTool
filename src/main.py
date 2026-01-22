@@ -2,9 +2,6 @@
 import time
 import flet as ft
 from loguru import logger
-from modules import testDanbooruPage, test_laowang, testHAnime, testSSTM
-from modules import DanbooruScraper,Laowang, HAnimeScraper, SSTM
-from modules import SpiderManager
 
 from pages import Navigator, RouteManager
 from multiprocessing import Process
@@ -33,17 +30,6 @@ class MyApp:
         ft.app(target=self.main)
 
 
-
-def subscribe_spider():
-    spider_manager = SpiderManager()
-    spider_manager.register("danbooru", DanbooruScraper)
-    spider_manager.register("laowang", Laowang)
-    spider_manager.register("hanime", HAnimeScraper)
-    spider_manager.register("sstm", SSTM)
-
-    # spider_manager.run_spider()
-
-
 def main():
 
     from api.app import run_api
@@ -51,14 +37,7 @@ def main():
     p = Process(target=run_api)
     p.start()
 
-    # subprocess.Popen([sys.executable,'-m','src.api.app'])
-
     time.sleep(1)
-    # ConfigManager('/config/spider.toml')
-    # # home_page = HomePage(page)
-    # # home_page.show()
-    # # Router.instance().go("/home", page)
-    # subscribe_spider()
     MyApp().run()
 
     p.terminate()

@@ -215,10 +215,18 @@ class DanbooruScraper(Crawler):
             headers = danbooru_header
         )
 
-    async def run(self, scrape_type:str = None, **kwargs):
+    async def run(self, **kwargs):
+        scrape_type = kwargs.get('scrape_type')
         logger.info(f"DanbooruScraper run: {scrape_type}")
         if scrape_type is None:
-            await self.test(**kwargs)
+            # await self.test(**kwargs)
+            self.queue.put(
+                {
+                    "status": "error",
+                    "message": "scrape_type is None"
+                }
+            )
+            return
 
         if scrape_type == 'page':
             url = kwargs.get('url')
@@ -256,13 +264,17 @@ class DanbooruScraper(Crawler):
                 }
                 self.queue.put(res_dit)
         elif scrape_type == 'download':
-            iteminfo_dict = kwargs.get('iteminfo')
-            if iteminfo_dict is None:
-                self.queue.put({"status": "error", "message": "Iteminfo is None"})
+            download_url = kwargs.get('download_url')
+            download_path = kwargs.get('download_path')
+            if download_url is None or download_path is None:
+                self.queue.put({"status": "error", "message": "下载链接或者保存路径为空"})
                 return
 
-            item_info = ItemPostInfo(**iteminfo_dict)
-            self.downloadPost(item_info)
+            save_path = await self.downloadPost(download_url, download_path)
+            if save_path is None:
+                self.queue.put({"status": "failed", "type": "download"})
+            else:
+                self.queue.put({"status": "success", "type": "download", "save_path": save_path})
 
         else:
             await self.test(**kwargs)
@@ -325,39 +337,8 @@ class DanbooruScraper(Crawler):
         danbooru_post = DanbooruPost(self.spider)
         return danbooru_post.getInfoFromPosts(urls)
 
-    def downloadPost(self, post:ItemPostInfo):
-        download_url = post.download_url
-        save_path = Path('storage/download/danbooru')
-        save_path.mkdir(parents=True, exist_ok=True)
-        save_path = save_path / f"{post.id}.{post.file_type}"
+    async def downloadPost(self, download_url:str, donwload_path:str):
+        save_path = Path(donwload_path)
 
-        return self.spider.download(url=download_url,save_path=str(save_path),async_mode=False)
+        return await self.spider.download_async(download_url, save_path)
 
-
-
-
-async def testDanbooruPage():
-    danbooru_spider = Spider(
-        headers = danbooru_header
-    )
-    danbooru_page = DanbooruPage(spider=danbooru_spider)
-    # page_url = 'https://danbooru.donmai.us/'
-    page_url = 'https://danbooru.donmai.us/posts?d=1&tags=order%3Arank'
-    # posts = danbooru_page.getPost(url=page_url)
-    posts = await danbooru_page.getPostsWithPreImgStartPage(url=page_url,page_count=1)
-    # print(posts)
-    print(posts.values())
-    danbooru_post = DanbooruPost(spider=danbooru_spider)
-    post_info_list:List[ItemPostInfo] = await danbooru_post.getInfoFromPosts(urls=posts.keys())
-    # print(post_info_list)
-    post_list:ItemPostList = ItemPostList(posts=post_info_list, start_url=page_url,start_page=1, page_count=2)
-    post_list.save_to_json('./storage/data/danbooru/test.json')
-
-    file_url_list = [post.file_url for post in post_info_list]
-    print(file_url_list)
-
-
-if __name__ == "__main__":
-    pass
-    # asyncio.run(main())
-    # asyncio.run(testDanbooruPage())

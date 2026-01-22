@@ -13,6 +13,7 @@ import time
 from core.config import PRO_DIR
 from core.nfo import NFO, EmbyMovieModel
 import re
+import shutil
 
 from ..crawler import Crawler
 
@@ -428,6 +429,7 @@ class HAnimeScraper(Crawler):
             else:
                 series_titile = watch_info_list[0].title
             series_titile = re.sub(r'[\\/:*?"<>|]', ' ', series_titile)
+            series_titile = series_titile.strip()
 
             for watch_info in watch_info_list:
                 file_stem = watch_info.title
@@ -602,79 +604,5 @@ class HAnimeScraper(Crawler):
                 json.dump(serises_dict, f, ensure_ascii=False, indent=4)
 
             time.sleep(1)       # 防止过快导致429
-
-
-async def testHAnime():
-    scraper = HAnimeScraper()
-
-    # url = URL('https://hanime1.me/search')
-    # # url = url.update_query({"genre":"裏番"})
-    # url = url.update_query({"genre":"3D動畫"})
-    # print(f'url: {url}')
-    # item_pre_list = scraper.searchPreviews(url=str(url))
-
-
-    # params = ItemSearchParameters(genre="裏番",query='雷火劍')
-    # params = ItemSearchParameters(query='武田弘光',tags=['碧池','痴女','公眾場合'])
-    params = ItemSearchParameters(query='雷火劍',tags=['碧池','痴女','公眾場合'])
-    item_pre_list = scraper.searchPreviewsWithParameters(parameters=params)
-
-    if not item_pre_list:
-        print('hanime searchPreviews is None')
-        return
-
-    pre_list = [item_pre.model_dump() for item_pre in item_pre_list]
-    # print(pre_list)
-    file_name_part = params.model_dump(exclude_unset=True,exclude={'tags'}).values()
-    file_name =  '_'.join(file_name_part)
-    if params.tags:
-        for tag in params.tags:
-            file_name += f'_{tag}'
-    save_path = Path(f'storage/data/hanime/page_{file_name}.json')
-    save_path.parent.mkdir(parents=True,exist_ok=True)
-
-    with open(str(save_path),'w',encoding='utf-8') as f:
-        json.dump(pre_list, f, ensure_ascii=False, indent=4)
-
-
-    # idx = 11
-    # item = item_pre_list[idx]
-
-    scraped_urls:List[str] = []
-    for idx,item in enumerate(item_pre_list):
-        url = item.watch_url
-        if url in scraped_urls:
-            logger.debug(f'url: {url} 已经爬取过了，跳过')
-            continue
-
-        serises = await scraper.getSeriesWatchInfos(url=url)
-
-        if serises is None:
-            return
-
-        serises_title:str = None
-        if isinstance(serises,list):
-            scraped_urls.extend([serise.url for serise in serises])
-            serises_title = serises[0].playlist.title
-            serises_dict = [serise.model_dump(exclude=['playlist']) for serise in serises]
-        else:
-            scraped_urls.append(serises.url)
-            serises_title = serises.title
-            serises_dict = serises.model_dump()
-
-        if serises_title is None:
-            serises_title = 'Unknown'
-
-        logger.info(f'系列名称: {serises_title}')
-        file_name = serises_title.split('/')[0]
-        logger.info(f'系列名称保存的文件名: {file_name}')
-        save_path = Path(f'storage/data/hanime/{file_name}.json')
-        save_path.parent.mkdir(parents=True,exist_ok=True)
-        logger.info(f'save_path: {save_path}')
-
-        with open(str(save_path),'w',encoding='utf-8') as f:
-            json.dump(serises_dict, f, ensure_ascii=False, indent=4)
-
-        time.sleep(1)       # 防止过快导致429
 
 

@@ -1,5 +1,6 @@
 from fastapi import FastAPI,WebSocket,WebSocketDisconnect
 from modules import (
+    SpiderType,
     SpiderManager,
     DanbooruScraper,
     Laowang,
@@ -9,10 +10,32 @@ from modules import (
     MissavScraper)
 import asyncio
 from loguru import logger
+from typing import List
+
 
 app = FastAPI()
 
 
+# WebSocket 管理器
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_progress(self, progress_data: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(progress_data)
+            except:
+                pass
+
+ws_manager = ConnectionManager()
 spider_manager = SpiderManager()
 
 
@@ -20,18 +43,22 @@ spider_manager = SpiderManager()
 async def init():
     global spider_manager
     spider_manager.register("danbooru", DanbooruScraper)
-    spider_manager.register("laowang", Laowang)
+    spider_manager.register("laowang", Laowang, SpiderType.AUTOMATION)
     spider_manager.register("hanime", HAnimeScraper)
-    spider_manager.register("sstm", SSTM)
+    spider_manager.register("sstm", SSTM, SpiderType.AUTOMATION)
     spider_manager.register("exhentai", ExHentaiScraper)
     spider_manager.register("missav", MissavScraper)
 
-    spdiers = {
-        '爬虫': ["danbooru", "hanime","exhentai", "missav"],
-        '签到': ["laowang", "sstm"]
-    }
 
-    return {"status": "OK", "spiders": spdiers}
+    # spdiers = {
+    #     '爬虫': ["danbooru", "hanime","exhentai", "missav"],
+    #     '签到': ["laowang", "sstm"]
+    # }
+
+    spiders_on_page = {spider_type.value:spiders for spider_type, spiders in spider_manager.type_spiders.items()}
+
+    # print(spiders_on_page)
+    return {"status": "OK", "spiders": spiders_on_page}
 
 @app.post("/start/{spider_name}")
 def start(spider_name: str, params: dict = None):
@@ -73,28 +100,39 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
         return
 
     try:
-        while True:
-            while not q.empty():
-                msg = q.get()
-                await ws.send_json(msg)
-                if msg.get("status") == "finished":
-                    # 任务结束，清理队列
-                    logger.info(f"任务 {task_id} 结束")
-                    # spider_manager.task_queues.pop(task_id, None)
-                    # await ws.close()
+        finished = False
+        while not finished:
+            messages = []
+            for _ in range(10):  # 一次最多取10条
+                if not q.empty():
+                    try:
+                        msg = q.get_nowait()
+                        messages.append(msg)
+                        if msg.get("status") in ["finished", "error"]:
+                            finished = True
+                    except:
+                        break
+                else:
                     break
 
+            # 发送所有消息
+            for msg in messages:
+                await ws.send_json(msg)
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
+
     except WebSocketDisconnect:
         logger.info(f"任务 {task_id} 的客户端关闭ws连接")
 
-    except Exception:
+    except Exception as e:
         # 连接中断也可以清理
-        logger.error(f"任务 {task_id} 连接中断")
-        ws.send_json({"status": "error", "message": f"任务 {task_id} 连接中断"})
-        # if task_id in spider_manager.task_queues:
-        #     spider_manager.task_queues.pop(task_id, None)
+        logger.error(f"任务 {task_id} 连接中断, 错误信息：{e}")
+        await ws.send_json({"status": "error", "message": f"任务 {task_id} 连接中断"})
+
+    finally:
+        await ws.close()
+        spider_manager.clean_queue(task_id)
+
 
 
 def run_api():

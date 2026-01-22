@@ -18,7 +18,7 @@ class CommonNavBar(ft.AppBar):
             ]
         )
 
-class CommonAllert(ft.AlertDialog):
+class CommonAlert(ft.AlertDialog):
     def __init__(self, title: str, content: str, actions: list[ft.Control] = None):
         super().__init__(
             title=ft.Text(title),
@@ -56,6 +56,7 @@ class BasePage(ABC):
 
     async def on_status_failed(self, msg: Dict):
         """处理任务失败"""
+        # logger.error('[BasePage on_status_failed] ' + msg['message'])
         self.page.open(ft.AlertDialog(title='ERROR',content=ft.Text(value=msg['message'])))
 
 

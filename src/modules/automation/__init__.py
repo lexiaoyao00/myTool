@@ -1,11 +1,8 @@
-from .laowang import test_laowang,Laowang
-from .sstm import testSSTM,SSTM
+from .laowang import Laowang
+from .sstm import SSTM
 
 
 __all__ = [
     "Laowang",
-    "test_laowang",
-
     "SSTM",
-    "testSSTM"
 ]

@@ -8,7 +8,10 @@ import json
 from pathlib import Path
 from core.config import Config,ConfigManager
 from core.spider import Spider
-from modules import danbooru_header
+# from modules import danbooru_header
+from . import download_path,data_path
+
+from loguru import logger
 
 import requests
 
@@ -26,7 +29,11 @@ class DanbooruDetailPage(BasePage):
 
         self.sidebar_expanded = True
 
-
+        self._download_dir = download_path or 'storage/download'
+        self._download_dir =  Path(self._download_dir).resolve() / 'danbooru'
+        self._item_info_save_path = data_path or 'storage/data'
+        self._item_info_save_path = Path(self._item_info_save_path).resolve() / 'danbooru' / 'item_info.json'
+        self._item_info:Dict = None
 
     def toggle_sidebar(self,e):
         self.sidebar_expanded = not self.sidebar_expanded
@@ -36,36 +43,57 @@ class DanbooruDetailPage(BasePage):
         self._toggle_button.icon = ft.Icons.CHEVRON_LEFT if self.sidebar_expanded else ft.Icons.CHEVRON_RIGHT
         self.page.update()
 
+    async def on_status_success(self, msg):
+        # return await super().on_status_success(msg)
+        if msg.get('type') == 'download':
+            save_path = msg.get('save_path')
+            self.page.open(
+                ft.SnackBar(
+                    ft.Text(value=f'下载完成,保存路径:{save_path}')
+                )
+            )
 
-    def _download(self,e):
-        from . import download_path,data_path
-        self._item_info_save_path = data_path or 'storage/data'
-        self._item_info_save_path = Path(self._item_info_save_path) / 'danbooru' / 'item_info.json'
+    async def on_status_failed(self, msg):
+        # return await super().on_status_failed(msg)
+        if msg.get('type') == 'download':
+            self.page.open(
+                ft.AlertDialog(
+                    title=ft.Text(value='ERROR'),
+                    content=ft.Text(value='下载失败'),
+                )
+            )
 
-        self._download_dir = download_path or 'storage/download'
-        self._download_dir = Path(self._download_dir) / 'danbooru'
-
-        item_info = self.page.session.get('danbooru_post')
+    async def _download(self,e):
+        item_info = self._item_info
         if item_info is None:
+            logger.error('下载失败,未获取到item_info')
             return
 
+        # logger.debug(f'获取到下载内容:{item_info}')
         donwload_path = Path(self._download_dir) / f'{item_info["id"]}.{item_info["file_type"]}'
-        spider = Spider(headers=danbooru_header)
-        self.page.open(ft.SnackBar(
-                ft.Text("下载任务开始"),
-            ))
-        spider.download(item_info['download_url'],donwload_path)
-        self.page.open(ft.SnackBar(
-                ft.Text("下载任务已完成"),
-            ))
-        # r = requests.post(f"http://127.0.0.1:8000/start/danbooru", json={
-        #     'scrape_type':'download',
-        #     'iteminfo':item_info,
-        #     })
-        # if r.status_code == 200:
-            # self.page.open(ft.SnackBar(
-            #     ft.Text("下载任务已开始"),
-            # ))
+
+        json_data = {
+            "scrape_type": "download",
+            "download_path" : str(donwload_path),
+            "download_url" : item_info['download_url'],
+        }
+
+        res_json : Dict= self.interact.start_spider('danbooru',json_data)
+        if res_json.get('status') != 'OK':
+            self.page.open(
+                ft.AlertDialog(
+                    title=ft.Text(value='ERROR'),
+                    content=ft.Text(value=res_json.get('message')),
+                )
+            )
+
+        self.page.open(
+            ft.SnackBar(
+                ft.Text(value='开始下载')
+            )
+        )
+        await self.listen_ws(res_json.get('task_id'))
+
 
         # 保存信息到本地
         item_info_save_path = Path(self._item_info_save_path)
@@ -76,6 +104,7 @@ class DanbooruDetailPage(BasePage):
                 item_save_info = json.load(f)
 
         if str(item_info['id']) in item_save_info:
+            logger.info('文件信息已经保存,跳过保存')
             return
 
         item_save_info[str(item_info['id'])] = item_info
@@ -84,13 +113,12 @@ class DanbooruDetailPage(BasePage):
 
 
 
-
-
     def build(self):
         item_info = self.page.session.get('danbooru_post')
         if item_info is None:
+            logger.warning('未获取到item_info')
             return self._view
-
+        self._item_info = item_info
 
         t_str = Template('$name : $value')
 

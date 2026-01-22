@@ -1,15 +1,16 @@
 
-from .spiderManager import SpiderManager
-from .automation import *
-from .scrapers import *
+from .spiderManager import SpiderManager,SpiderType
+from .automation import Laowang,SSTM
+from .scrapers import DanbooruScraper, MissavScraper, ExHentaiScraper, HAnimeScraper
 
 
 __all__ = [
+    "SpiderType",
     "SpiderManager",
     "DanbooruScraper",
-    "testDanbooruPage",
-    "testHAnime",
-    "test_laowang",
-    "testSSTM",
     "MissavScraper",
+    "ExHentaiScraper",
+    "HAnimeScraper",
+    "Laowang",
+    "SSTM",
 ]
