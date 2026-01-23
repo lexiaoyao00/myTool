@@ -74,7 +74,6 @@ class HanimePage(BasePage):
         else:
             url = None
 
-        print(f"下载确认:{self._download_cb.value}")
         json_data = {
             'scrape_type':scrape_type,
             'url':url,
@@ -82,7 +81,12 @@ class HanimePage(BasePage):
         }
         res_json = self.interact.start_spider(name='hanime',json_data=json_data)
         if res_json['status'] in ['NG','ERROR']:
-            self.page.open(ft.AlertDialog(content=ft.Text(value=res_json['message'])))
+            self.page.open(ft.AlertDialog(
+                content=ft.Text(value=res_json['message']),
+                actions=[
+                    ft.TextButton(text="停止爬虫", on_click=lambda e: self.interact.stop_spider('hanime')),
+                ]
+                ))
             return
 
         await self.listen_ws(res_json['task_id'])
@@ -97,6 +101,10 @@ class HanimePage(BasePage):
             self._append_progress_bar_view(data)
         elif spider_type == 'download_end':
             logger.info(f"Hanime 下载完成")
+            self.page.open(ft.AlertDialog(
+                title='提示',
+                content=ft.Text(value=msg.get('message','下载完成'))
+            ))
         elif spider_type == 'downloading':
             progress = msg.get('progress')
             if progress:

@@ -5,6 +5,7 @@ import asyncio
 from loguru import logger
 from pathlib import Path
 import aiofiles
+import time
 
 class Spider:
     def __init__(self,headers:HeaderTypes=None, cookies:CookieTypes=None, chunk_size:int = 1024*1024*10, max_concurrent:int = 5):
@@ -17,7 +18,7 @@ class Spider:
         self.chunk_size = chunk_size
         self.impersonate='chrome'
         self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.async_session = AsyncSession(max_clients=10)
+        self.async_session = AsyncSession(max_clients=max_concurrent)
 
     def syncGet(self, url:str, session:Session = None):
         if session is None:
@@ -93,14 +94,18 @@ class Spider:
 
                 total = int(resp.headers.get("Content-Length", 0))
                 downloaded = 0
+                last_report_time = time.time()
+
                 async with aiofiles.open(save_path, "wb") as f:
                     async for chunk in resp.aiter_content(chunk_size=self.chunk_size):
                         await f.write(chunk)
                         downloaded += len(chunk)
 
-                        if on_progress:
+                        now = time.time()
+                        if on_progress and (now - last_report_time >= 1 or downloaded >= total):    # 每秒报告一次进度
                             task_name = name or url
                             on_progress(task_name, downloaded, total)
+                            last_report_time = now
 
             await asyncio.sleep(1)  # 等待1秒，确保文件写入完成或者请求过快
 

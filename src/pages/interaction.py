@@ -18,6 +18,10 @@ class InteractSpider:
         url = f'{self._host}/start/{name}'
         return curl_cffi.post(url,json=json_data).json()
 
+    def stop_spider(self, name:str):
+        url = f'{self._host}/stop/{name}'
+        return curl_cffi.post(url).json()
+
     def stop_listen_ws(self, task_id:str):
         if self._ws_stop_flag.get(task_id):
             self._ws_stop_flag[task_id] = True
@@ -36,16 +40,6 @@ class InteractSpider:
         self._ws_stop_flag[task_id] = False
         async with AsyncSession() as session:
             ws = await session.ws_connect(f"{self._ws_host}/ws/{task_id}")
-            if ws.recv_json() is None:
-                logger.error(f"task '{task_id}' WebSocket 连接失败")
-
-                msg = {
-                    "status": "error",
-                    "message": "WebSocket 连接失败"
-                }
-                await self._handle_ws_msg(msg)
-                return
-
             try:
                 while True:
                     if self._ws_stop_flag.get(task_id):
@@ -68,10 +62,10 @@ class InteractSpider:
             except Exception as e:
                 logger.error(f'ws 接收消息时发生错误:{e}')
 
-
-            logger.debug(f"task '{task_id}' WebSocket 正在关闭")
-            if not ws.closed:
-                await ws.close()
-            logger.debug(f"task '{task_id}' WebSocket 已经关闭")
-            # self._ws_stop_flag[task_id] = False
-            del self._ws_stop_flag[task_id]
+            finally:
+                logger.debug(f"task '{task_id}' WebSocket 正在关闭")
+                if not ws.closed:
+                    await ws.close()
+                logger.debug(f"task '{task_id}' WebSocket 已经关闭")
+                # self._ws_stop_flag[task_id] = False
+                del self._ws_stop_flag[task_id]

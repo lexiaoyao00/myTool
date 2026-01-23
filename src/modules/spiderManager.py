@@ -22,7 +22,6 @@ class SpiderManager():
     - 启动/停止爬虫子进程
     - 查询运行状态
     """
-    _spider_instance: Dict[str, Crawler] = {}  # 保存爬虫实例
 
     def __init__(self):
         super().__init__()
@@ -82,7 +81,7 @@ class SpiderManager():
         task_id = str(uuid.uuid4())
         self.task_queues[task_id] = q
         target = self._registry[name]
-        p = multiprocessing.Process(target=SpiderManager._run, args=(name, target, q, *args), kwargs=kwargs, daemon=True)
+        p = multiprocessing.Process(target=SpiderManager._run, args=(target, q, *args), kwargs=kwargs, daemon=True)
         p.start()
         self._processes [name] = p
         logger.info(f"爬虫 {name} 已启动 PID={p.pid}")
@@ -93,10 +92,11 @@ class SpiderManager():
 
     def _monitor_process(self, name, task_id):
         """ 后台线程监控子进程状态，完成后清理 """
-        p = self._processes [name]
+        p = self._processes[name]
         if p:
             p.join()  # 等待子进程退出
             self._processes.pop(name, None)         # 清理进程记录
+            self.clean_queue(task_id)  # 清理队列
 
         logger.info(f"爬虫 {name} 已结束")
 
@@ -128,14 +128,11 @@ class SpiderManager():
         return p.is_alive() if p else False
 
     @staticmethod
-    def _run(name: str, target: Type[Crawler], q:multiprocessing.Queue, *args, **kwargs):
+    def _run(target: Type[Crawler], q:multiprocessing.Queue, *args, **kwargs):
         """子进程运行爬虫"""
         import os
         logger.info(f"[子进程] PID={os.getpid()} 启动")
-        instance = SpiderManager._spider_instance.get(name)
-        if not instance:
-            instance = target(queue=q)
-            SpiderManager._spider_instance[name] = instance
+        instance = target(queue=q)
 
         q.put({"status":"start"})
         try:

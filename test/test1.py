@@ -1,22 +1,20 @@
 
 
-def test():
-    try:
-        for i in range(10):
-            print(i)
-            if i == 5:
-                return
-    except Exception as e:
-        print(e)
-    finally:
-        print("finally")
+class Test:
+    _test_dict = {}
 
 
-def test2():
-    with open('e:\\GIT_pros\\myTool\\storage\\data\\hanime\\nfo\\OVA サキュバス喚んだら義母が来た!\\召喚魅魔結果義母來了!  1.nfo', 'w') as f:
-        f.write('test')
+    @staticmethod
+    def test(i,s):
+        str_t =  Test._test_dict.get(i)
+        if not str_t:
+            Test._test_dict[i] = s
+            print(Test._test_dict)
 
 
 if __name__ == '__main__':
-    test2()
+    Test.test(1,'a')
+    Test.test(3,'c')
+    Test.test(2,'b')
+    Test.test(1,'a')
 

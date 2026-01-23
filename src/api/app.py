@@ -109,7 +109,9 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
                         msg = q.get_nowait()
                         messages.append(msg)
                         if msg.get("status") in ["finished", "error"]:
+                            logger.info(f"任务 {task_id} 完成或出错")
                             finished = True
+                            break
                     except:
                         break
                 else:
@@ -130,7 +132,7 @@ async def websocket_endpoint(ws: WebSocket, task_id: str):
         await ws.send_json({"status": "error", "message": f"任务 {task_id} 连接中断"})
 
     finally:
-        await ws.close()
+        # await ws.close()
         spider_manager.clean_queue(task_id)
 
 

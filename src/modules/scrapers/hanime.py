@@ -479,10 +479,19 @@ class HAnimeScraper(Crawler):
 
             })
 
+
         for file_name, download_url in download_dict.items():
             file_path = download_dir / file_name
             download_tasks.append(self.spider.download_async(url=download_url, save_path=file_path,on_progress=on_download_progress,name=file_name))
 
+
+        if len(download_tasks) == 0:
+            self.queue.put({
+                "status": "running",
+                "type" : "download_end",
+                "message": "目标文件已经全部下载过了"
+            })
+            return
 
 
         self.queue.put({
