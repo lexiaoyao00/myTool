@@ -17,8 +17,8 @@ class Spider:
         self.cookies = cookies
         self.chunk_size = chunk_size
         self.impersonate='chrome'
-        self.semaphore = asyncio.Semaphore(max_concurrent)
-        self.async_session = AsyncSession(max_clients=max_concurrent)
+        self.max_concurrent = max_concurrent
+        # self.semaphore = asyncio.Semaphore(max_concurrent)
 
     def syncGet(self, url:str, session:Session = None):
         if session is None:
@@ -38,28 +38,28 @@ class Spider:
 
 
     async def asyncGet(self, url:str):
-        # async with AsyncSession() as s:
-        task = self.async_session.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate,allow_redirects=True)
-        try:
-            result:Response = await task
-            return result
-        except Exception as e:
-            logger.error(f"Failed to scrape, error: {e}")
-            return None
+        async with AsyncSession() as s:
+            task = s.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate,allow_redirects=True)
+            try:
+                result:Response = await task
+                return result
+            except Exception as e:
+                logger.error(f"Failed to scrape, error: {e}")
+                return None
 
-    async def asyncGetMulties(self, urls:List[str],max_workers:int = 10):
-        # async with AsyncSession(max_clients=max_workers) as s:
-        tasks = []
-        for url in urls:
-            task = self.async_session.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate)
-            tasks.append(task)
+    async def asyncGetMulties(self, urls:List[str]):
+        async with AsyncSession() as s:
+            tasks = []
+            for url in urls:
+                task = s.get(url=url, headers=self.headers, cookies=self.cookies, impersonate=self.impersonate)
+                tasks.append(task)
 
-        try:
-            results:List[Response] = await asyncio.gather(*tasks)
-            return results
-        except Exception as e:
-            logger.error(f"Failed to scrape, error: {e}")
-            return None
+            try:
+                results:List[Response] = await asyncio.gather(*tasks)
+                return results
+            except Exception as e:
+                logger.error(f"Failed to scrape, error: {e}")
+                return None
 
 
     def download_sync(self, url: str, save_path: Path, on_progress = None) -> str:
@@ -82,32 +82,30 @@ class Spider:
 
     async def download_async(self, url: str, save_path: Path, on_progress : Callable[[str, int, int], None] = None, name:str = None) -> str:
         """异步下载（流式分块写入）"""
-        async with self.semaphore:
+        async with asyncio.Semaphore(self.max_concurrent):
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # async with AsyncSession(max_clients=5) as session:
-            async with self.async_session.stream("GET", url, headers=self.headers) as resp:
-                if resp.status_code != 200:
-                    # raise Exception(f"下载失败: HTTP {resp.status_code}")
-                    logger.error(f"下载 {save_path} 失败: HTTP {resp.status_code}")
-                    return None
+            async with AsyncSession(max_clients=5) as session:
+                async with session.stream("GET", url, headers=self.headers) as resp:
+                    if resp.status_code != 200:
+                        # raise Exception(f"下载失败: HTTP {resp.status_code}")
+                        logger.info(f"下载 {save_path} 失败: HTTP {resp.status_code}")
+                        return None
 
-                total = int(resp.headers.get("Content-Length", 0))
-                downloaded = 0
-                last_report_time = time.time()
+                    total = int(resp.headers.get("Content-Length", 0))
+                    downloaded = 0
+                    last_report_time = time.time()
 
-                async with aiofiles.open(save_path, "wb") as f:
-                    async for chunk in resp.aiter_content(chunk_size=self.chunk_size):
-                        await f.write(chunk)
-                        downloaded += len(chunk)
+                    async with aiofiles.open(save_path, "wb") as f:
+                        async for chunk in resp.aiter_content(chunk_size=self.chunk_size):
+                            await f.write(chunk)
+                            downloaded += len(chunk)
 
-                        now = time.time()
-                        if on_progress and (now - last_report_time >= 1 or downloaded >= total):    # 每秒报告一次进度
-                            task_name = name or url
-                            on_progress(task_name, downloaded, total)
-                            last_report_time = now
-
-            await asyncio.sleep(1)  # 等待1秒，确保文件写入完成或者请求过快
+                            now = time.time()
+                            if on_progress and (now - last_report_time >= 1 or downloaded >= total):
+                                task_name = name or url
+                                on_progress(task_name, downloaded, total)
+                                last_report_time = now
 
             logger.info(f"异步下载完成: {url} -> {save_path}")
             return str(save_path)

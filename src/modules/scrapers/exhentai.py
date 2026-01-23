@@ -222,7 +222,7 @@ class ExHentaiPost():
         if post_pages is None:
             return [url]
 
-        res_pages = await self.spider.asyncGetMulties(urls=post_pages,max_workers=5)
+        res_pages = await self.spider.asyncGetMulties(urls=post_pages)
 
         saw_url_list_output:List[str] = []
         for res in res_pages:

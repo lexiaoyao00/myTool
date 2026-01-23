@@ -1,12 +1,14 @@
-import multiprocessing
+# import multiprocessing
 from typing import Dict, Type, List
 from collections import defaultdict
 import asyncio
+from queue import Queue
 from loguru import logger
 from .crawler import Crawler
 import uuid
 import threading
 from enum import StrEnum
+import time
 
 class SpiderType(StrEnum):
     """
@@ -27,9 +29,11 @@ class SpiderManager():
         super().__init__()
         # 保存所有已注册的爬虫{name: 入口函数}
         self._registry: Dict[str, Type[Crawler]] = {}
-        self._processes : Dict[str, multiprocessing.Process] = {}
-        self.task_queues : Dict[str,multiprocessing.Queue] = {} # 外部清理
+        self._processes : Dict[str, threading.Thread] = {}
+        self.task_queues : Dict[str, Queue] = {} # 外部清理
         self.type_spiders: Dict[SpiderType, List[str]] = defaultdict(list)
+        self.spider_instances: Dict[str, Crawler] = {}
+        self._lock = threading.Lock()
 
     def __del__(self):
         self.stop_all()
@@ -63,50 +67,53 @@ class SpiderManager():
 
     # ------- 运行管理 -------
     def run_spider(self, name: str, *args, **kwargs):
-        """
-        启动爬虫子进程
-        :param name: 爬虫名称
-        :param args: 位置参数
-        :param kwargs: 关键字参数
-        """
-        if name not in self._registry:
-            logger.error(f"爬虫 {name} 未注册")
-            return None
+        with self._lock:
+            if name not in self._registry:
+                logger.error(f"爬虫 {name} 未注册")
+                return None
 
-        if name in self._processes  and self._processes [name].is_alive():
-            logger.warning(f"爬虫 {name} 已在运行")
-            return None
+            if name in self._processes and self._processes[name].is_alive():
+                logger.warning(f"爬虫 {name} 已在运行")
+                return None
 
-        q = multiprocessing.Queue()
-        task_id = str(uuid.uuid4())
-        self.task_queues[task_id] = q
-        target = self._registry[name]
-        p = multiprocessing.Process(target=SpiderManager._run, args=(target, q, *args), kwargs=kwargs, daemon=True)
-        p.start()
-        self._processes [name] = p
-        logger.info(f"爬虫 {name} 已启动 PID={p.pid}")
+            task_id = str(uuid.uuid4())
+            instance = self.spider_instances.get(name)
+            if not instance:
+                q = Queue()
+                instance = self._registry[name](queue=q)
+                self.spider_instances[name] = instance
+            self.task_queues[task_id] = instance.queue
 
-        # 异步监控进程，结束后自动清理
+            t = threading.Thread(target=self._run, args=(instance, *args), kwargs=kwargs, daemon=True)
+            t.start()
+            self._processes[name] = t
+
+        # 启动监控线程（不需要锁）
         threading.Thread(target=self._monitor_process, args=(name, task_id), daemon=True).start()
         return task_id
 
     def _monitor_process(self, name, task_id):
-        """ 后台线程监控子进程状态，完成后清理 """
-        p = self._processes[name]
-        if p:
-            p.join()  # 等待子进程退出
-            self._processes.pop(name, None)         # 清理进程记录
-            self.clean_queue(task_id)  # 清理队列
+        p = self._processes.get(name)
+        if not p:
+            logger.warning(f"监控线程：未找到爬虫 {name}")
+            return
+
+        # 先等待线程结束（join 在锁外）
+        p.join()   # 只阻塞这个后台线程, 不会影响 UI
+
+        # join 后进行清理 —— 这是修改共享字典的地方
+        with self._lock:
+            self.clean_queue(task_id)
+            self._processes.pop(name, None)
 
         logger.info(f"爬虫 {name} 已结束")
+
 
 
     def clean_queue(self, task_id):
         """ 清理队列 """
         q = self.task_queues.pop(task_id, None)
         if q:
-            q.close()
-            q.join_thread()
             logger.info(f"队列 {task_id} 已清理")
 
     def stop(self, name: str):
@@ -127,19 +134,16 @@ class SpiderManager():
         p = self._processes .get(name)
         return p.is_alive() if p else False
 
-    @staticmethod
-    def _run(target: Type[Crawler], q:multiprocessing.Queue, *args, **kwargs):
-        """子进程运行爬虫"""
-        import os
-        logger.info(f"[子进程] PID={os.getpid()} 启动")
-        instance = target(queue=q)
+    def _run(self,instance:Crawler, *args, **kwargs):
+        """子线程运行爬虫"""
+        logger.info(f"[子线程] 启动")
 
-        q.put({"status":"start"})
+        instance.queue.put({"status": "start"})
         try:
             asyncio.run(instance.run(*args, **kwargs))
         except Exception as e:
-            logger.error(f"[子进程] PID={os.getpid()} 发生异常: {e}")
-            q.put({"status":"error", "message": str(e)})
+            logger.error(f"[子线程] 异常: {e}")
+            instance.queue.put({"status": "error", "message": str(e)})
         finally:
-            logger.info(f"[子进程] PID={os.getpid()} 任务完成")
-            q.put({"status":"finished"})
+            logger.info("[子线程] 任务完成")
+            instance.queue.put({"status": "finished"})

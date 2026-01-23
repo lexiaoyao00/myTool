@@ -298,6 +298,7 @@ class HAnimeScraper(Crawler):
         self.watch = HAnimeWatch(self.spider,session=self.session)
 
         self.nfo = NFO()
+        self._downloaded_dict :Dict[str,str] = {}
 
     async def run(self,**kwargs):
         scrape_type = kwargs.get('scrape_type')
@@ -479,8 +480,14 @@ class HAnimeScraper(Crawler):
 
             })
 
+            if downloaded >= total:
+                self._downloaded_dict[name] = download_dict[name]
+
 
         for file_name, download_url in download_dict.items():
+            if file_name in self._downloaded_dict:
+                logger.info(f'{file_name} 已经下载过了')
+                continue
             file_path = download_dir / file_name
             download_tasks.append(self.spider.download_async(url=download_url, save_path=file_path,on_progress=on_download_progress,name=file_name))
 

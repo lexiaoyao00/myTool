@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from multiprocessing import Queue
+from queue import Queue
 
 
 

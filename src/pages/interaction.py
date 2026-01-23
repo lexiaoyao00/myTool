@@ -47,14 +47,15 @@ class InteractSpider:
                         break
 
                     msg:Dict = await ws.recv_json()
+
+                    if msg is None or ws.closed:
+                        logger.info(f"task '{task_id}' 链接关闭")
+                        break
+
                     status:str = msg.get('status','')
 
                     if status == 'finished':
                         logger.info(f"task '{task_id}' finished")
-                        break
-
-                    if msg is None or ws.closed:
-                        logger.info(f"task '{task_id}' 链接关闭")
                         break
 
                     await self._handle_ws_msg(msg)
