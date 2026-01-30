@@ -10,7 +10,6 @@ from functools import partial
 class ExhentaiPage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
-        self.page.title = "ExHentai"
 
         self.init()
 

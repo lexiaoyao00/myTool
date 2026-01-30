@@ -13,7 +13,6 @@ from loguru import logger
 class HanimePage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
-        self.page.title = "Hanime"
         self._search_url_tf = ft.TextField(label="search url")
         self._watch_url_tf = ft.TextField(label="watch url")
         self._progress_controls:Dict[str,ft.Control] = {}

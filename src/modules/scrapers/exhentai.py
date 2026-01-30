@@ -13,7 +13,7 @@ from string import Template
 import zipfile
 from core.config import PRO_DIR
 from loguru import logger
-from core.utils import zip_dir
+from core.utils import zip_dir,limit_gather
 import shutil
 
 
@@ -107,9 +107,6 @@ class ExHentaiSaw():
         self.spider = spider
         self.session = session
 
-        self.semaphore = asyncio.Semaphore(5)  # 最多 5 个请求同时进行
-
-
     def _parse(self,html:str):
         selector = Selector(text=html)
         item = {}
@@ -133,13 +130,11 @@ class ExHentaiSaw():
         return self._parse(res.text)
 
     async def download_org(self,url:str,save_path:Path):
-        async with self.semaphore:
-            async with AsyncSession(max_clients=5) as s:
-                r = await s.get(url,cookies=exhentai_cookies,headers=exhentai_headers,allow_redirects=True)
-                # print("最终的 URL：", r.url)
+        async with AsyncSession(max_clients=5) as s:
+            r = await s.get(url,cookies=exhentai_cookies,headers=exhentai_headers,allow_redirects=True)
+            # print("最终的 URL：", r.url)
 
-            await self.spider.download_async(url=r.url,save_path=save_path)
-            await asyncio.sleep(1)  # 等待1秒，防止请求过快
+        await self.spider.download_async(url=r.url,save_path=save_path)
 
 
 
@@ -463,10 +458,12 @@ class ExHentaiScraper(Crawler):
             #     json.dump([saw_info.model_dump() for saw_info in saw_infos],f,ensure_ascii=False,indent=4)
 
             download_dir = self._download_save_dir / post_item.subtitle
-            # download_tasks = [self.exhentai_saw.download_org(url=info.org_img,save_path= download_dir / info.file_name) for info in saw_infos if info is not None]
-            # await asyncio.gather(*download_tasks)
             self._to_comicInfo(post_item,save_to_path=True,save_path=download_dir / 'ComicInfo.xml')
 
+            download_flag = kwargs.get('download', False)
+            if download_flag:
+                download_tasks = [self.exhentai_saw.download_org(url=info.org_img,save_path= download_dir / info.file_name) for info in saw_infos if info is not None]
+                await limit_gather(download_tasks,5)
             # zip_dir(download_dir, download_dir.with_suffix('.cbz'))
 
 

@@ -11,7 +11,6 @@ import flet as ft
 class MissavPage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
-        self.page.title = "MissAv"
         self._search_tf = ft.TextField(label="搜索", value='mide-565')
         self._test_btn = ft.ElevatedButton("测试", on_click=self.test)
 

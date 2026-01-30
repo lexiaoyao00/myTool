@@ -47,7 +47,6 @@ class HomePage(BasePage):
         self.init()
 
     def init(self):
-        self.page.title = "Home Page"
 
         if not self.spiders:
             r = requests.get("http://127.0.0.1:8000/")

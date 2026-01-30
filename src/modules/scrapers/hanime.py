@@ -12,6 +12,7 @@ from pathlib import Path
 import time
 from core.config import PRO_DIR
 from core.nfo import NFO, EmbyMovieModel
+from core.utils import limit_gather
 import re
 import shutil
 
@@ -507,7 +508,8 @@ class HAnimeScraper(Crawler):
                 "message": "开始下载",
                 "data": list(download_dict.keys())
             })
-        await asyncio.gather(*download_tasks)
+        # await asyncio.gather(*download_tasks)
+        await limit_gather(download_tasks,limit=5)
         self.queue.put({
                 "status": "running",
                 "type" : "download_end",

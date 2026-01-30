@@ -1,20 +1,14 @@
 import flet as ft
-from typing import Dict, Type
+from typing import Dict
 from ..base_page import BasePage
 from ..router import register_route,Navigator
 from core.utils import judge_file_type,FileType
 from string import Template
 import json
 from pathlib import Path
-from core.config import Config,ConfigManager
-from core.spider import Spider
-# from modules import danbooru_header
-from . import download_path,data_path
+from core.setting import Setting
 
 from loguru import logger
-
-import requests
-
 
 @register_route('/danbooru/post')
 class DanbooruDetailPage(BasePage):
@@ -28,11 +22,6 @@ class DanbooruDetailPage(BasePage):
             )
 
         self.sidebar_expanded = True
-
-        self._download_dir = download_path or 'storage/download'
-        self._download_dir =  Path(self._download_dir).resolve() / 'danbooru'
-        self._item_info_save_path = data_path or 'storage/data'
-        self._item_info_save_path = Path(self._item_info_save_path).resolve() / 'danbooru' / 'item_info.json'
         self._item_info:Dict = None
 
     def toggle_sidebar(self,e):
@@ -68,6 +57,12 @@ class DanbooruDetailPage(BasePage):
         if item_info is None:
             logger.error('下载失败,未获取到item_info')
             return
+        setting = Setting()
+        self._download_dir = setting.get_config('path').get('download_path', 'storage/download')
+        self._download_dir =  Path(self._download_dir).resolve() / 'danbooru'
+        self._item_info_save_path = setting.get_config('path').get('data_path', 'storage/data')
+        self._item_info_save_path = Path(self._item_info_save_path).resolve() / 'danbooru' / 'item_info.json'
+
 
         # logger.debug(f'获取到下载内容:{item_info}')
         donwload_path = Path(self._download_dir) / f'{item_info["id"]}.{item_info["file_type"]}'

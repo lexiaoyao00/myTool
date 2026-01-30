@@ -43,7 +43,13 @@ def main():
     p.terminate()
     p.join()
 
+def test():
+    from core.setting import Setting
+    my_setting = Setting()
+    print(my_setting.get_config('path').get('download_path'))
+    print(my_setting.get_config('path').get('data_path'))
 
 if __name__ == '__main__':
+    # test()
     main()
     # ft.app(target=main)

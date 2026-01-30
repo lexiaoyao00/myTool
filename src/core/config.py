@@ -17,9 +17,11 @@ class Config:
         """加载 TOML 文件到内存"""
         self._data = toml.load(self._file_path)
 
-    def save(self):
+    def save(self, file_path: str | Path = None):
         """保存当前配置到文件"""
-        with open(self._file_path, "w", encoding="utf-8") as f:
+        if file_path is None:
+            file_path = self._file_path
+        with open(file_path, "w", encoding="utf-8") as f:
             toml.dump(self._data, f)
 
     def reload(self):

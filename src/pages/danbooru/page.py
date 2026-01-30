@@ -1,16 +1,13 @@
 import flet as ft
 from ..base_page import BasePage
-from ..interaction import InteractSpider
 from ..router import register_route,Navigator
 from typing import List,Dict,Callable
 from loguru import logger
 import json
 from functools import partial
 from pathlib import Path
-
+from core.setting import Setting
 from core.config import ConfigManager , Config
-from . import data_path
-
 
 class PreviewImage(ft.GestureDetector):
     def __init__(self, src:str, on_click:Callable=None):
@@ -47,8 +44,6 @@ class PreviewGallery(ft.GridView):
 class DanbooruPage(BasePage):
     def __init__(self, page: ft.Page, nav: Navigator):
         super().__init__(page, nav)
-        self.page.title = "Danbooru"
-        self.page.scroll = ft.ScrollMode.AUTO
 
         self.init()
 
@@ -163,7 +158,7 @@ class DanbooruPage(BasePage):
             ))
             return
 
-        cache_data_path = data_path or 'storage/data'
+        cache_data_path = Setting().get_config('path').get('data_path', 'storage/data')
         cache_data_path = Path(cache_data_path) / 'danbooru' / 'item_info.json'
 
         if cache_data_path.exists():

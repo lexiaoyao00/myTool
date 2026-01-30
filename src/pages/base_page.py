@@ -9,14 +9,24 @@ from .interaction import InteractSpider
 
 
 class CommonNavBar(ft.AppBar):
-    def __init__(self, title: str, nav: Navigator):
+    def __init__(self, title: str, nav: Navigator, show_setting_btn: bool = True):
+        self._setting_btn = ft.IconButton(icon=ft.Icons.SETTINGS, on_click=lambda e: nav.navigate('/settings'), visible=show_setting_btn)
         super().__init__(
             title=ft.Text(title),
             actions=[
+                self._setting_btn,
                 ft.IconButton(icon=ft.Icons.ARROW_BACK, on_click=nav.back),
                 ft.IconButton(icon=ft.Icons.ARROW_FORWARD, on_click=nav.forward),
             ]
         )
+
+    def hide_setting_btn(self):
+        self._setting_btn.visible = False
+        self.update()
+
+    def show_setting_btn(self):
+        self._setting_btn.visible = True
+        self.update()
 
 class CommonAlert(ft.AlertDialog):
     def __init__(self, title: str, content: str, actions: list[ft.Control] = None):
@@ -44,7 +54,7 @@ class BasePage(ABC):
         'finished': self.on_status_finished,
     }
 
-    def common_navbar(self, title: str):
+    def common_navbar(self, title: str, show_setting_btn: bool = True):
         # return ft.AppBar(
         #     title=ft.Text(title),
         #     actions=[
@@ -52,11 +62,11 @@ class BasePage(ABC):
         #         ft.IconButton(icon=ft.Icons.ARROW_FORWARD, on_click=self.nav.forward),
         #     ]
         # )
-        return CommonNavBar(title, self.nav)
+        return CommonNavBar(title, self.nav, show_setting_btn)
 
     async def on_status_failed(self, msg: Dict):
         """处理任务失败"""
-        # logger.error('[BasePage on_status_failed] ' + msg['message'])
+        logger.error('[BasePage on_status_failed] ' + msg['message'])
         self.page.open(ft.AlertDialog(title='ERROR',content=ft.Text(value=msg['message'])))
 
 

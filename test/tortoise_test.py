@@ -1,46 +1,53 @@
 import asyncio
-from tortoise import Tortoise, fields
-from tortoise.models import Model
+from tortoise import Tortoise
+from models import Author, Post, Tag
 
-class User(Model):
-    id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=50)
-    age = fields.IntField()
-
-    def __str__(self):
-        return f"{self.name} ({self.age})"
 
 async def run():
-    # 1. 初始化并建表
-    await Tortoise.init(
-        db_url='sqlite://test.db',
-        modules={'models': ['__main__']}
-    )
+    TORTOISE_ORM = {
+        "connections": {
+            "default": "sqlite://db.sqlite3",
+        },
+        "apps": {
+            "models": {
+                "models": ["models"],  # 模型模块
+                "default_connection": "default",
+            },
+        },
+    }
+
+    await Tortoise.init(config=TORTOISE_ORM)
     await Tortoise.generate_schemas()
 
-    # 2. 增加
-    await User.create(name='Alice', age=25)
-    await User.create(name='Bob', age=30)
+    # === 一对多 ===
+    author = await Author.create(name="Alice")
+    post1 = await Post.create(title="First Post", content="Hello ORM!", author=author)
+    post2 = await Post.create(title="Second Post", content="Another content", author=author)
 
-    # 3. 查询
-    all_users = await User.all()
-    print("所有用户:", all_users)
+    # === 多对多 ===
+    tag_python = await Tag.create(name="Python")
+    tag_orm = await Tag.create(name="ORM")
 
-    # 条件查询
-    young_users = await User.filter(age__lt=30).all()
-    print("30岁以下用户:", young_users)
+    # 给 post1 添加两个标签
+    await post1.tags.add(tag_python, tag_orm)
 
-    # 4. 修改
-    user = await User.get(name='Alice')
-    user.age = 26
-    await user.save()
-    print("修改后:", await User.get(name='Alice'))
+    # 给 post2 添加一个标签
+    await post2.tags.add(tag_orm)
 
-    # 5. 删除
-    await user.delete()
-    print("删除后:", await User.all())
+    # 查询：每个 Post 的所有标签
+    posts = await Post.all().prefetch_related("tags", "author")
+    for p in posts:
+        print(f"\nPost: {p.title}")
+        print(f"Author: {p.author.name}")
+        print("Tags:", [t.name for t in await p.tags.all()])
 
-    # 6. 关闭连接
+    # 查询反向关系：哪些 Post 拥有某个 Tag
+    tag = await Tag.get(name="ORM").prefetch_related("posts")
+    print(f"\nTag '{tag.name}' is used in posts:",
+          [p.title for p in await tag.posts.all()])
+
     await Tortoise.close_connections()
 
-asyncio.run(run())
+
+if __name__ == "__main__":
+    asyncio.run(run())

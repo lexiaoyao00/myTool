@@ -1,7 +1,28 @@
 import enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Iterable, Awaitable, Any, List
 import zipfile
 from pathlib import Path
+import asyncio
+
+async def limit_gather(coros: Iterable[Awaitable[Any]], limit: int) -> List[Any]:
+    """
+    对一组协程任务执行 gather，但限制同时运行的最大数量。
+
+    参数:
+        coros: 一个可迭代对象，包含协程对象 (coroutine)。
+               例如 [download_async(...), download_async(...), ...]
+        limit: 同时并发执行的最大协程数。
+
+    返回值:
+        返回 gather 的结果列表，与 asyncio.gather 一致。
+    """
+    sem = asyncio.Semaphore(limit)
+
+    async def run_with_sem(coro: Awaitable[Any]):
+        async with sem:
+            return await coro
+
+    return await asyncio.gather(*(run_with_sem(c) for c in coros))
 
 
 def zip_dir(folder_path, zip_path, include_dirs: bool = False):
