@@ -2,6 +2,8 @@
 import time
 import flet as ft
 from loguru import logger
+import asyncio
+from db import init_db,close_db
 
 from pages import Navigator, RouteManager
 from multiprocessing import Process
@@ -43,13 +45,57 @@ def main():
     p.terminate()
     p.join()
 
-def test():
-    from core.setting import Setting
-    my_setting = Setting()
-    print(my_setting.get_config('path').get('download_path'))
-    print(my_setting.get_config('path').get('data_path'))
+
+
+async def test():
+
+    await init_db()
+
+    from db.models.missav import Missav,Actress,Actor,Genre,Series,Maker,Director,Tag
+    # av = await Missav.create(releasedate='2017-02-19',
+    #                    title='銀粉奴●演奏家 二宮和香',
+    #                    num_code='ABG-004-UNCENSORED-LEAK')
+
+    # ma = await Actor.create(name='堀尾')
+    # fa = await Actress.create(name='二宫和香')
+
+    # g1 = await Genre.create(name='无码流出')
+    # g2 = await Genre.create(name='巨乳')
+    # g3 = await Genre.create(name='恋物癖')
+
+    # s = await Series.create(name='○粉奴●')
+
+    # m = await Maker.create(name='ゴールドバグ/妄想族')
+
+    # d = await Director.create(name='あばしり一家')
+
+    # t = await Tag.create(name='ゴールドバグ')
+
+    # await av.actors.add(ma)
+    # await av.actresses.add(fa)
+    # await av.genres.add(g1,g2,g3)
+    # await av.series.add(s)
+    # await av.makers.add(m)
+    # await av.directors.add(d)
+    # await av.tags.add(t)
+
+    posts = await Missav.all().prefetch_related("tags", "genres")
+    for post in posts:
+        print(f"Post: {post.title}")
+        print(f"Tags: {[tag.name for tag in await post.tags.all()]}")
+        print(f"Genres: {[genre.name for genre in await post.genres.all()]}")
+        print('=' * 20)
+
+
+    # tag = await Tag.get(name='ゴールドバグ').prefetch_related("missav")
+    # print(f"\nTag '{tag.name}' is used in posts:",
+    #       [p.title for p in await tag.missav.all()])
+
+    await close_db()
+
+
 
 if __name__ == '__main__':
-    # test()
+    # asyncio.run(test())
     main()
     # ft.app(target=main)

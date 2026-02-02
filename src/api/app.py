@@ -11,6 +11,8 @@ from modules import (
 import asyncio
 from loguru import logger
 from typing import List
+from db import TORTOISE_ORM
+from tortoise.contrib.fastapi import register_tortoise
 
 
 app = FastAPI()
@@ -37,7 +39,12 @@ class ConnectionManager:
 
 ws_manager = ConnectionManager()
 spider_manager = SpiderManager()
-
+register_tortoise(
+    app=app,
+    config=TORTOISE_ORM,
+    generate_schemas=True,
+    add_exception_handlers=True
+)
 
 @app.get("/")
 async def init():

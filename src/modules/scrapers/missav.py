@@ -1,11 +1,24 @@
 from ..crawler import Crawler
-from typing import List
+from typing import List,Optional
 from curl_cffi import Session,Response
 from core.spider import Spider
 from parsel import Selector
 from yarl import URL
 from loguru import logger
 from pydantic import BaseModel
+from datetime import date
+import re
+import asyncio
+from db.models.missav import (
+    Missav,
+    Actress,
+    Actor,
+    Genre,
+    Series,
+    Maker,
+    Director,
+    Tag
+    )
 
 
 missav_cookies = {
@@ -47,16 +60,203 @@ missav_headers = {
 
 class ItemSearchResult(BaseModel):
     title: str
-    url: str
+    post_url: str
     pre_img: str
 
+
+class EasyMode(BaseModel):
+    name : str
+    href : str = None
+
 class ItemWatchInfo(BaseModel):
-    pass
+    title : str = None
+    num_code : str = None
+    releasedate : date = None
+    plot : str = ''
+    actresses : List[EasyMode] = []
+    actors : List[EasyMode] = []
+    genres : List[EasyMode] = []
+    series : List[EasyMode] = []
+    makers : List[EasyMode] = []
+    directors : List[EasyMode] = []
+    tags : List[EasyMode] = []
+
 
 class MissavWatch:
     def __init__(self,spider:Spider,session:Session):
         self.spider = spider
         self.session = session
+
+        self._label_func_map = {
+            '发行日期': self._parseWatchInfo_date,
+            '番号': self._parseWatchInfo_num_code,
+            '标题': self._parseWatchInfo_title,
+            '女优': self._parseWatchInfo_actresses,
+            '男优': self._parseWatchInfo_actors,
+            '类型': self._parseWatchInfo_genres,
+            '系列': self._parseWatchInfo_series,
+            '发行商': self._parseWatchInfo_makers,
+            '导演': self._parseWatchInfo_directors,
+            '标籤': self._parseWatchInfo_tags,
+        }
+
+
+    def _parseWatchInfo_date(self,sel:Selector,item:ItemWatchInfo):
+        date_time = sel.css('time.font-medium::text').get()
+        if date_time:
+            item.releasedate = date_time
+            return True
+        else:
+            logger.warning('date_time is None')
+            return False
+
+    def _parseWatchInfo_title(self,sel:Selector,item:ItemWatchInfo):
+        title = sel.css('span.font-medium::text').get()
+        if title:
+            item.title = title
+            return True
+        else:
+            logger.warning('title is None')
+            return False
+
+    def _parseWatchInfo_num_code(self,sel:Selector,item:ItemWatchInfo):
+        num_code = sel.css('span.font-medium::text').get()
+        if num_code:
+            item.num_code = num_code
+            return True
+        else:
+            logger.warning('num_code is None')
+            return False
+
+    def _parseWatchInfo_actresses(self,sel:Selector,item:ItemWatchInfo):
+        actresses_sel = sel.css('a.font-medium')
+        if not actresses_sel.get():
+            logger.warning('actresses is None')
+            return False
+
+        for actress in actresses_sel:
+            name = actress.css('::text').get()
+            href = actress.css('::attr(href)').get()
+            item.actresses.append(EasyMode(name=name,href=href))
+
+        return True
+
+    def _parseWatchInfo_actors(self,sel:Selector,item:ItemWatchInfo):
+        actors_sel = sel.css('a.font-medium')
+        if not actors_sel.get():
+            logger.warning('actors is None')
+            return False
+
+        for actor in actors_sel:
+            name = actor.css('::text').get()
+            href = actor.css('::attr(href)').get()
+            item.actors.append(EasyMode(name=name,href=href))
+
+        return True
+
+    def _parseWatchInfo_genres(self,sel:Selector,item:ItemWatchInfo):
+        genres_sel = sel.css('a.font-medium')
+        if not genres_sel.get():
+            logger.warning('genres is None')
+            return False
+
+        for genre in genres_sel:
+            name = genre.css('::text').get()
+            href = genre.css('::attr(href)').get()
+            item.genres.append(EasyMode(name=name,href=href))
+
+        return True
+
+    def _parseWatchInfo_series(self,sel:Selector,item:ItemWatchInfo):
+        series_sel = sel.css('a.font-medium')
+        if not series_sel.get():
+            logger.warning('series is None')
+            return False
+
+        for series in series_sel:
+            name = series.css('::text').get()
+            href = series.css('::attr(href)').get()
+
+            item.series.append(EasyMode(name=name,href=href))
+
+        return True
+
+    def _parseWatchInfo_makers(self,sel:Selector,item:ItemWatchInfo):
+        makers_sel = sel.css('a.font-medium')
+        if not makers_sel.get():
+            logger.warning('makers is None')
+            return False
+
+        for maker in makers_sel:
+            name = maker.css('::text').get()
+            href = maker.css('::attr(href)').get()
+            item.makers.append(EasyMode(name=name,href=href))
+
+        return True
+
+    def _parseWatchInfo_directors(self,sel:Selector,item:ItemWatchInfo):
+        directors_sel = sel.css('a.font-medium')
+        if not directors_sel.get():
+            logger.warning('directors is None')
+            return False
+
+        for director in directors_sel:
+            name = director.css('::text').get()
+            href = director.css('::attr(href)').get()
+            item.directors.append(EasyMode(name=name,href=href))
+
+        return True
+
+    def _parseWatchInfo_tags(self,sel:Selector,item:ItemWatchInfo):
+        tags_sel = sel.css('a.font-medium')
+        if not tags_sel.get():
+            logger.warning('tags is None')
+            return False
+
+        for tag in tags_sel:
+            name = tag.css('::text').get()
+            href = tag.css('::attr(href)').get()
+            item.tags.append(EasyMode(name=name,href=href))
+
+        return True
+
+    def _parseWatchInfo(self,html:str):
+        sel = Selector(text=html)
+
+        item = ItemWatchInfo()
+
+        plot = sel.css('div.mb-1.text-secondary.break-all.line-clamp-2::text').get()
+        if plot:
+            item.plot = plot.strip()
+
+        space_info_sel = sel.css('div.space-y-2 div.text-secondary')
+
+        for space_info in space_info_sel:
+            key = space_info.css('span:first-child::text').get().strip(':').strip()
+            if key not in self._label_func_map:
+                logger.warning(f'key {key} 是预料之外的分类键值')
+                continue
+
+            func = self._label_func_map[key]
+            if not func(space_info,item):
+                logger.warning(f'key {key} 的值解析失败')
+                return None
+
+        return item
+
+
+
+    async def getWatchInfo(self, url:str|URL):
+        res : Response = await self.spider.asyncGet(str(url))
+        if res is None:
+            logger.error(f"[MissavWatchInfo getWatchInfo] {str(url)} failed to get response")
+            return None
+
+        if res.status_code not in [200, 302]:
+            logger.error(f"[MissavWatchInfo getWatchInfo] {str(url)} status code {res.status_code}")
+            return None
+
+        return self._parseWatchInfo(res.text)
 
 
 class MissavSearch:
@@ -65,6 +265,19 @@ class MissavSearch:
         self.session = session
         self.base_url = 'https://missav.ws/cn/search'
 
+
+    def _parseSearchMaxPage(self,html:str) -> int:
+        sel = Selector(text=html)
+        max_page_sel = sel.css('span#price-currency::text').get()
+        if not max_page_sel:
+            return 1
+
+        max_page_match = re.search(r'\d+', max_page_sel)
+        if not max_page_match:
+            return 1
+
+        max_page = int(max_page_match.group())
+        return max_page
 
     def _parseSearchResults(self,html:str):
         sel = Selector(text=html)
@@ -80,7 +293,7 @@ class MissavSearch:
             pre_img = post_sel.css('img::attr(data-src)').get()
             item = ItemSearchResult(
                 title = title,
-                url = url,
+                post_url = url,
                 pre_img = pre_img
             )
             items.append(item)
@@ -89,17 +302,55 @@ class MissavSearch:
 
     async def getPostPreviews(self,query:str):
         search_url = URL(self.base_url) / query
-        # print(search_url)
-        res:Response = await self.spider.asyncGet(str(search_url))
+        return await self.getSearchResults(search_url)
+
+    async def getSearchResults(self, url:str|URL, sem: Optional[asyncio.Semaphore] = None):
+        if sem:
+            async with sem:
+                res:Response = await self.spider.asyncGet(str(url))
+        else:
+            res:Response = await self.spider.asyncGet(str(url))
+
         if res is None:
-            logger.error(f"[MissavSearch] {search_url} failed to get response")
+            logger.error(f"[MissavSearch getSearchResults] {str(url)} failed to get response")
             return None
 
         if res.status_code == 404:
-            logger.error(f"[MissavSearch] {search_url} not found")
+            logger.error(f"[MissavSearch getSearchResults] {str(url)} not found")
             return None
 
         return self._parseSearchResults(res.text)
+
+    async def getSearchResultsAllPages(self, search_url:str|URL):
+        res:Response = await self.spider.asyncGet(str(search_url))
+        if res is None:
+            logger.error(f"[MissavSearch getSearchResultsAllPages] {str(search_url)} failed to get response")
+            return None
+
+        if res.status_code == 404:
+            logger.error(f"[MissavSearch getSearchResultsAllPages] {str(search_url)} not found")
+            return None
+
+        max_page = self._parseSearchMaxPage(res.text)
+        # print(max_page)
+        if max_page == 1:
+            return await self.getSearchResults(search_url)
+
+        base_url = URL(search_url)
+        urls = [ base_url.update_query(page=i) for i in range(1,max_page+1) ]
+        tasks = [ asyncio.create_task(self.getSearchResults(url)) for url in urls ]
+
+        total = len(tasks)
+        completed = 0
+        items : List[ItemSearchResult] = []
+        for task in asyncio.as_completed(tasks):
+            result = await task
+            if result:
+                items.extend(result)
+            completed += 1
+            logger.info(f"[MissavSearch getSearchResultsAllPages] {completed}/{total} completed")
+
+        return items
 
 
 class MissavScraper(Crawler):
@@ -119,32 +370,151 @@ class MissavScraper(Crawler):
         scrape_type = kwargs.get('scrape_type')
 
         if scrape_type == 'search':
-            query = kwargs.get('query','')
-            items = await self._searcher.getPostPreviews(query)
+            url = kwargs.get('url')
+            if url:
+                # items = await self._searcher.getSearchResults(url)
+                items = await self._searcher.getSearchResultsAllPages(url)
+            else:
+                query = kwargs.get('query','露出')
+                items = await self._searcher.getPostPreviews(query)
+
             if not items:
-                logger.error(f"[MissavScraper] {query} not found")
+                logger.error(f"[MissavScraper] 搜索失败")
                 self.queue.put({
                     "status": "failed",
                     "type" : "search",
-                    "message": f"搜索 {query} 未爬取到信息"
+                    "message": f"搜索 {url or query} 未爬取到信息"
                 })
                 return
-            # if len(items) > 2:
-            #     logger.warning(f"[MissavScraper] {query} search result more than 2")
-            #     self.queue.put({
-            #         "status": "failed",
-            #         "type" : "search",
-            #         "message": f"搜索 {query} 爬取到超过2条信息,请检查番号是否正确"
-            #     })
+
             res_list = [item.model_dump() for item in items]
             self.queue.put({
                 "status": "success",
                 "type" : "search",
                 "data":res_list,
             })
-            logger.info(f"[MissavScraper] {query} search success")
+            logger.info(f"[MissavScraper] 搜索成功, 共 {len(items)} 条数据")
+        elif scrape_type == 'watch':
+            url = kwargs.get('url')
+
+            if not url:
+                logger.error(f"[MissavScraper] watch url 为空")
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "watch",
+                    "message": f"URL 为空，无法爬取"
+                })
+
+            item = await self._watcher.getWatchInfo(url)
+            if not item:
+                logger.error(f"[MissavScraper] watch 爬取失败")
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "watch",
+                    "message": f"爬取 {url} 失败"
+                })
+                return
+
+            await self.uploadWatchInfo(item)
+            self.queue.put({
+                "status": "success",
+                "type" : "watch",
+                "data":item.model_dump(exclude_none=True),
+            })
+
         else:
             await self.test()
+
+    async def uploadWatchInfo(self, item:ItemWatchInfo):
+
+        av = await Missav.get_or_none(num_code=item.num_code)
+        if av:
+            logger.info(f"[MissavScraper] {item.num_code} 已存在")
+            return
+
+        av = await Missav.create(releasedate = item.releasedate,
+            num_code = item.num_code,
+            title = item.title,
+            plot = item.plot)
+
+        pending_actresses = []
+        for actress in item.actresses:
+            fa = await Actress.get_or_none(name=actress.name)
+            if fa:
+                pending_actresses.append(fa)
+            else:
+                fa = await Actress.create(name=actress.name,href=actress.href)
+                pending_actresses.append(fa)
+        if pending_actresses:
+            await av.actresses.add(*pending_actresses)
+
+        pending_actors = []
+        for actor in item.actors:
+            ma = await Actor.get_or_none(name=actor.name)
+            if ma:
+                pending_actors.append(ma)
+            else:
+                ma = await Actor.create(name=actor.name,href=actor.href)
+                pending_actors.append(ma)
+        if pending_actors:
+            await av.actors.add(*pending_actors)
+
+        pending_genres = []
+        for genre in item.genres:
+            ga = await Genre.get_or_none(name=genre.name)
+            if ga:
+                pending_genres.append(ga)
+            else:
+                ga = await Genre.create(name=genre.name)
+                pending_genres.append(ga)
+        if pending_genres:
+            await av.genres.add(*pending_genres)
+
+        pending_series = []
+        for series in item.series:
+            sa = await Series.get_or_none(name=series.name)
+            if sa:
+                pending_series.append(sa)
+            else:
+                sa = await Series.create(name=series.name,href=series.href)
+                pending_series.append(sa)
+        if pending_series:
+            await av.series.add(*pending_series)
+
+        pending_makers = []
+        for maker in item.makers:
+            ma = await Maker.get_or_none(name=maker.name)
+            if ma:
+                pending_makers.append(ma)
+            else:
+                ma = await Maker.create(name=maker.name,href=maker.href)
+                pending_makers.append(ma)
+        if pending_makers:
+            await av.makers.add(*pending_makers)
+
+        pending_directors = []
+        for director in item.directors:
+            da = await Director.get_or_none(name=director.name)
+            if da:
+                pending_directors.append(da)
+            else:
+                da = await Director.create(name=director.name,href=director.href)
+                pending_directors.append(da)
+        if pending_directors:
+            await av.directors.add(*pending_directors)
+
+        pending_tags = []
+        for tag in item.tags:
+            ta = await Tag.get_or_none(name=tag.name)
+            if ta:
+                pending_tags.append(ta)
+            else:
+                ta = await Tag.create(name=tag.name)
+                pending_tags.append(ta)
+        if pending_tags:
+            await av.tags.add(*pending_tags)
+
+        await av.save()
 
     async def test(self):
         items = await self._searcher.getPostPreviews('mide-565')
@@ -153,6 +523,6 @@ class MissavScraper(Crawler):
 
         for item in items:
             print(item.title)
-            print(item.网址)
-            print(item.预览图)
+            print(item.post_url)
+            print(item.pre_img)
             print('---')
