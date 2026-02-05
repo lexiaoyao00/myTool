@@ -13,10 +13,23 @@ from loguru import logger
 from typing import List
 from db import TORTOISE_ORM
 from tortoise.contrib.fastapi import register_tortoise
+from contextlib import asynccontextmanager
+from .routes import missav
 
 
-app = FastAPI()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动阶段：init 每个 router 的逻辑
+    await missav.init_tasks()
+    yield
+    # 停止阶段
+    await missav.shutdown_tasks()
+
+
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(missav.missav_router)
 
 # WebSocket 管理器
 class ConnectionManager:
@@ -43,8 +56,10 @@ register_tortoise(
     app=app,
     config=TORTOISE_ORM,
     generate_schemas=True,
-    add_exception_handlers=True
 )
+
+
+
 
 @app.get("/")
 async def init():

@@ -52,13 +52,13 @@ class InteractSpider:
                         logger.info(f"task '{task_id}' 链接关闭")
                         break
 
+                    await self._handle_ws_msg(msg)
                     status:str = msg.get('status','')
 
-                    if status == 'finished':
+                    if status in  ['error','finished']:
                         logger.info(f"task '{task_id}' finished")
                         break
 
-                    await self._handle_ws_msg(msg)
 
             except Exception as e:
                 logger.error(f'ws 接收消息时发生错误:{e}')

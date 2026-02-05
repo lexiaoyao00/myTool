@@ -1,8 +1,25 @@
 import enum
-from typing import Dict, List, Iterable, Awaitable, Any, List
+from typing import Dict, List, Iterable, Awaitable, Any, List, Type, TypeVar
 import zipfile
 from pathlib import Path
 import asyncio
+from tortoise.exceptions import IntegrityError,DoesNotExist
+from tortoise.models import Model
+from loguru import logger
+
+T = TypeVar("T", bound=Model)  # 泛型：任何继承 Model 的类型
+async def get_or_create_safe(model: Type[T], **kwargs) -> tuple[T, bool]:
+    """
+    安全的 get_or_create，返回 (obj, created)
+    """
+    try:
+        obj, created = await model.get_or_create(**kwargs)
+    except IntegrityError:
+        # 其它并发协程可能刚刚插入了相同记录
+        logger.warning(f"并发插入相同记录: {kwargs}")
+        obj = await model.get(**kwargs)
+        created = False
+    return obj, created
 
 async def limit_gather(coros: Iterable[Awaitable[Any]], limit: int) -> List[Any]:
     """

@@ -8,12 +8,14 @@ from db import init_db,close_db
 from pages import Navigator, RouteManager
 from multiprocessing import Process
 from core.config import PRO_DIR
+
+
 log_dir = PRO_DIR / 'storage/logs'
 # logger.remove()
-logger.add(f"{str(log_dir)}/debug.log", enqueue=True, rotation="10 MB", retention="10 days",level="DEBUG")
-logger.add(f"{str(log_dir)}/info.log", enqueue=True, rotation="10 MB", retention="10 days",level="INFO")
-logger.add(f"{str(log_dir)}/warning.log", enqueue=True,rotation="10 MB", retention="10 days",level="WARNING")
-logger.add(f"{str(log_dir)}/error.log", enqueue=True,rotation="10 MB", retention="10 days",level="ERROR")
+logger.add(f"{str(log_dir)}/debug.log", enqueue=True, rotation="10 MB",level="DEBUG")
+logger.add(f"{str(log_dir)}/info.log", enqueue=True, rotation="10 MB",level="INFO")
+logger.add(f"{str(log_dir)}/warning.log", enqueue=True,rotation="10 MB", level="WARNING")
+logger.add(f"{str(log_dir)}/error.log", enqueue=True,rotation="10 MB", level="ERROR")
 
 # 应用
 class MyApp:
@@ -52,6 +54,8 @@ async def test():
     await init_db()
 
     from db.models.missav import Missav,Actress,Actor,Genre,Series,Maker,Director,Tag
+    from tortoise.expressions import Q
+    from tortoise.functions import Count
     # av = await Missav.create(releasedate='2017-02-19',
     #                    title='銀粉奴●演奏家 二宮和香',
     #                    num_code='ABG-004-UNCENSORED-LEAK')
@@ -79,17 +83,52 @@ async def test():
     # await av.directors.add(d)
     # await av.tags.add(t)
 
-    posts = await Missav.all().prefetch_related("tags", "genres")
-    for post in posts:
-        print(f"Post: {post.title}")
-        print(f"Tags: {[tag.name for tag in await post.tags.all()]}")
-        print(f"Genres: {[genre.name for genre in await post.genres.all()]}")
-        print('=' * 20)
+    # posts = await Missav.all().prefetch_related("tags", "genres")
+    # for post in posts:
+    #     print(f"Post: {post.title}")
+    #     print(f"Tags: {[tag.name for tag in await post.tags.all()]}")
+    #     print(f"Genres: {[genre.name for genre in await post.genres.all()]}")
+    #     print('=' * 20)
+
+    # print(len(posts))
+
+    # posts = await Missav.filter(tags__name='巨乳').filter(tags__name='美丽的胸部')
+    # for post in posts:
+    #     print(f"Post: {post.title}")
+    #     print(f"Tags: {[tag.name for tag in await post.tags.all()]}")
+    #     print(f"Genres: {[genre.name for genre in await post.genres.all()]}")
+    #     print('=' * 20)
+
+    # print(len(posts))
+
+    # filter_tag_conditions = ['户外曝晒']
+    # posts = await Missav.filter(
+    #     tags__name__in=filter_tag_conditions
+    #     ).annotate(
+    #         tag__count = Count('tags')
+    #     ).filter(
+    #         tag__count=len(filter_tag_conditions)
+    #     )
+
+    # for post in posts:
+    #     print(f"Post: {post.title}")
+    #     print(f"url: {post.url}")
+    #     print(f"Tags: {[tag.name for tag in await post.tags.all()]}")
+    #     print(f"Genres: {[genre.name for genre in await post.genres.all()]}")
+    #     print('=' * 20)
+
+    # print(len(posts))
+
+    # tags = await Tag.all()
+    # for tag in tags:
+    #     print(tag.name , tag.href)
+
+    # print(len(tags))
+
+    posts_count = await Missav.all().count()
+    print(posts_count)
 
 
-    # tag = await Tag.get(name='ゴールドバグ').prefetch_related("missav")
-    # print(f"\nTag '{tag.name}' is used in posts:",
-    #       [p.title for p in await tag.missav.all()])
 
     await close_db()
 

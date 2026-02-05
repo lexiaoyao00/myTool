@@ -1,14 +1,16 @@
 from ..crawler import Crawler
 from typing import List,Optional
+import curl_cffi
 from curl_cffi import Session,Response
-from core.spider import Spider
 from parsel import Selector
 from yarl import URL
 from loguru import logger
-from pydantic import BaseModel
-from datetime import date
 import re
 import asyncio
+from core.spider import Spider
+from core.utils import limit_gather
+from schemas.missav import ItemSearchResult, EasyMode, ItemWatchInfo
+from tortoise.functions import Count
 from db.models.missav import (
     Missav,
     Actress,
@@ -57,29 +59,6 @@ missav_headers = {
     'upgrade-insecure-requests': '1',
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
 }
-
-class ItemSearchResult(BaseModel):
-    title: str
-    post_url: str
-    pre_img: str
-
-
-class EasyMode(BaseModel):
-    name : str
-    href : str = None
-
-class ItemWatchInfo(BaseModel):
-    title : str = None
-    num_code : str = None
-    releasedate : date = None
-    plot : str = ''
-    actresses : List[EasyMode] = []
-    actors : List[EasyMode] = []
-    genres : List[EasyMode] = []
-    series : List[EasyMode] = []
-    makers : List[EasyMode] = []
-    directors : List[EasyMode] = []
-    tags : List[EasyMode] = []
 
 
 class MissavWatch:
@@ -220,10 +199,11 @@ class MissavWatch:
 
         return True
 
-    def _parseWatchInfo(self,html:str):
+    def _parseWatchInfo(self,html:str, url:str):
         sel = Selector(text=html)
 
         item = ItemWatchInfo()
+        item.url = url
 
         plot = sel.css('div.mb-1.text-secondary.break-all.line-clamp-2::text').get()
         if plot:
@@ -247,16 +227,18 @@ class MissavWatch:
 
 
     async def getWatchInfo(self, url:str|URL):
-        res : Response = await self.spider.asyncGet(str(url))
+        url_str = str(url)
+        res : Response = await self.spider.asyncGet(url_str)
         if res is None:
-            logger.error(f"[MissavWatchInfo getWatchInfo] {str(url)} failed to get response")
+            logger.error(f"[MissavWatchInfo getWatchInfo] {url_str} failed to get response")
             return None
 
         if res.status_code not in [200, 302]:
-            logger.error(f"[MissavWatchInfo getWatchInfo] {str(url)} status code {res.status_code}")
+            logger.error(f"[MissavWatchInfo getWatchInfo] {url_str} status code {res.status_code}")
             return None
 
-        return self._parseWatchInfo(res.text)
+        logger.info(f"[MissavWatchInfo getWatchInfo] {url_str} success")
+        return self._parseWatchInfo(res.text,url_str)
 
 
 class MissavSearch:
@@ -338,17 +320,14 @@ class MissavSearch:
 
         base_url = URL(search_url)
         urls = [ base_url.update_query(page=i) for i in range(1,max_page+1) ]
-        tasks = [ asyncio.create_task(self.getSearchResults(url)) for url in urls ]
+        tasks = [ self.getSearchResults(url) for url in urls ]
 
-        total = len(tasks)
-        completed = 0
+        logger.info(f"[MissavSearch getSearchResultsAllPages] 共 {max_page} pages")
+        result_items : List[List[ItemSearchResult]] = await limit_gather(tasks,20)
         items : List[ItemSearchResult] = []
-        for task in asyncio.as_completed(tasks):
-            result = await task
+        for result in result_items:
             if result:
                 items.extend(result)
-            completed += 1
-            logger.info(f"[MissavSearch getSearchResultsAllPages] {completed}/{total} completed")
 
         return items
 
@@ -365,6 +344,17 @@ class MissavScraper(Crawler):
         self._searcher = MissavSearch(self.spider,self.session)
         self._watcher = MissavWatch(self.spider,self.session)
 
+    async def getWatchInfo(self, url:str|URL, upload:bool = True):
+        item = await self._watcher.getWatchInfo(url)
+        if not item:
+            logger.error(f"[MissavScraper getWatchInfo] {str(url)} failed to get watch info")
+            return None
+
+        if upload:
+            await self.uploadWatchInfo(item)
+        return item
+
+
     async def run(self, **kwargs):
 
         scrape_type = kwargs.get('scrape_type')
@@ -373,12 +363,12 @@ class MissavScraper(Crawler):
             url = kwargs.get('url')
             if url:
                 # items = await self._searcher.getSearchResults(url)
-                items = await self._searcher.getSearchResultsAllPages(url)
+                search_ressult = await self._searcher.getSearchResultsAllPages(url)
             else:
                 query = kwargs.get('query','露出')
-                items = await self._searcher.getPostPreviews(query)
+                search_ressult = await self._searcher.getPostPreviews(query)
 
-            if not items:
+            if not search_ressult:
                 logger.error(f"[MissavScraper] 搜索失败")
                 self.queue.put({
                     "status": "failed",
@@ -387,13 +377,33 @@ class MissavScraper(Crawler):
                 })
                 return
 
-            res_list = [item.model_dump() for item in items]
+            # res_list = [item.model_dump() for item in search_ressult]
+            # self.queue.put({
+            #     "status": "success",
+            #     "type" : "search",
+            #     "data":res_list,
+            # })
+            logger.info(f"[MissavScraper] 搜索成功, 共 {len(search_ressult)} 条数据")
+
+            # 进一步获取信息
+            search_filter = [item for item in search_ressult if item]
+
+            items = await self.getWatchInfoFromSearch(search_filter)
+            if not items:
+                logger.error(f"[MissavScraper] 进一步获取信息时爬取失败")
+                self.queue.put({
+                    "status": "failed",
+                    "type" : "search",
+                    "message": f"爬取 {url or query} 失败"
+                })
+                return
+            res_list = [item.model_dump() for item in items if item]
+            logger.info(f"[MissavScraper] 进一步获取信息成功, 共 {len(res_list)} 条数据")
             self.queue.put({
                 "status": "success",
                 "type" : "search",
                 "data":res_list,
             })
-            logger.info(f"[MissavScraper] 搜索成功, 共 {len(items)} 条数据")
         elif scrape_type == 'watch':
             url = kwargs.get('url')
 
@@ -425,96 +435,29 @@ class MissavScraper(Crawler):
         else:
             await self.test()
 
-    async def uploadWatchInfo(self, item:ItemWatchInfo):
+    async def getWatchInfoFromSearch(self, search_result : List[ItemSearchResult]) -> List[ItemWatchInfo]:
+        logger.info(f"[MissavScraper] getWatchInfoFromSearch 一共 {len(search_result)} 个任务")
+        tasks = [ self.getWatchInfo(item.post_url) for item in search_result ]
+        return await limit_gather(tasks, 10)
 
-        av = await Missav.get_or_none(num_code=item.num_code)
-        if av:
-            logger.info(f"[MissavScraper] {item.num_code} 已存在")
+    async def uploadWatchInfo(self, item:ItemWatchInfo):
+        if item.releasedate is None or item.num_code is None:
+            logger.error(f"[MissavScraper] {item.num_code} releasedate 或 num_code 为空")
             return
 
-        av = await Missav.create(releasedate = item.releasedate,
-            num_code = item.num_code,
-            title = item.title,
-            plot = item.plot)
+        curl_cffi.post('http://127.0.0.1:8000/missav/upload',json=item.model_dump())
 
-        pending_actresses = []
-        for actress in item.actresses:
-            fa = await Actress.get_or_none(name=actress.name)
-            if fa:
-                pending_actresses.append(fa)
-            else:
-                fa = await Actress.create(name=actress.name,href=actress.href)
-                pending_actresses.append(fa)
-        if pending_actresses:
-            await av.actresses.add(*pending_actresses)
 
-        pending_actors = []
-        for actor in item.actors:
-            ma = await Actor.get_or_none(name=actor.name)
-            if ma:
-                pending_actors.append(ma)
-            else:
-                ma = await Actor.create(name=actor.name,href=actor.href)
-                pending_actors.append(ma)
-        if pending_actors:
-            await av.actors.add(*pending_actors)
-
-        pending_genres = []
-        for genre in item.genres:
-            ga = await Genre.get_or_none(name=genre.name)
-            if ga:
-                pending_genres.append(ga)
-            else:
-                ga = await Genre.create(name=genre.name)
-                pending_genres.append(ga)
-        if pending_genres:
-            await av.genres.add(*pending_genres)
-
-        pending_series = []
-        for series in item.series:
-            sa = await Series.get_or_none(name=series.name)
-            if sa:
-                pending_series.append(sa)
-            else:
-                sa = await Series.create(name=series.name,href=series.href)
-                pending_series.append(sa)
-        if pending_series:
-            await av.series.add(*pending_series)
-
-        pending_makers = []
-        for maker in item.makers:
-            ma = await Maker.get_or_none(name=maker.name)
-            if ma:
-                pending_makers.append(ma)
-            else:
-                ma = await Maker.create(name=maker.name,href=maker.href)
-                pending_makers.append(ma)
-        if pending_makers:
-            await av.makers.add(*pending_makers)
-
-        pending_directors = []
-        for director in item.directors:
-            da = await Director.get_or_none(name=director.name)
-            if da:
-                pending_directors.append(da)
-            else:
-                da = await Director.create(name=director.name,href=director.href)
-                pending_directors.append(da)
-        if pending_directors:
-            await av.directors.add(*pending_directors)
-
-        pending_tags = []
-        for tag in item.tags:
-            ta = await Tag.get_or_none(name=tag.name)
-            if ta:
-                pending_tags.append(ta)
-            else:
-                ta = await Tag.create(name=tag.name)
-                pending_tags.append(ta)
-        if pending_tags:
-            await av.tags.add(*pending_tags)
-
-        await av.save()
+    async def db_filterWithTags(self, tags:List[str]):
+        filter_tag_conditions = tags
+        posts = await Missav.filter(
+            tags__name__in=filter_tag_conditions
+            ).annotate(
+                tag__count = Count('tags')
+            ).filter(
+                tag__count=len(filter_tag_conditions)
+            )
+        return posts
 
     async def test(self):
         items = await self._searcher.getPostPreviews('mide-565')

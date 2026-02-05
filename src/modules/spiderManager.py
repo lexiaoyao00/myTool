@@ -140,10 +140,13 @@ class SpiderManager():
 
         instance.queue.put({"status": "start"})
         try:
-            asyncio.run(instance.run(*args, **kwargs))
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(instance.run(*args, **kwargs))
+            loop.close()
         except Exception as e:
             logger.error(f"[子线程] 异常: {e}")
             instance.queue.put({"status": "error", "message": str(e)})
         finally:
-            logger.info("[子线程] 任务完成")
             instance.queue.put({"status": "finished"})
+            logger.info("[子线程] 任务完成")

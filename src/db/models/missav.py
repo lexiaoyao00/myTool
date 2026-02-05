@@ -5,8 +5,9 @@ class Missav(Model):
     id = fields.IntField(pk=True)
     releasedate = fields.DateField()    # 发行日期
     title = fields.CharField(max_length=256)    # 标题
-    num_code = fields.CharField(max_length=100) # 番号
+    num_code = fields.CharField(max_length=100,unique=True) # 番号
     plot = fields.TextField(default="")  # 简介
+    url = fields.CharField(max_length=256)   # 链接
     actresses : fields.ManyToManyRelation['Actress'] = fields.ManyToManyField("missav.Actress", related_name="missav")  # 女优
     actors : fields.ManyToManyRelation['Actor'] = fields.ManyToManyField("missav.Actor", related_name="missav")   # 男优
     genres : fields.ManyToManyRelation['Genre'] = fields.ManyToManyField("missav.Genre", related_name="missav")   # 类型
@@ -24,8 +25,8 @@ class Missav(Model):
 class Actress(Model):
     """ 女优 """
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    href = fields.CharField(max_length=256,null=True)
+    name = fields.CharField(max_length=100,unique=True)
+    href = fields.CharField(max_length=1024,null=True)
 
     missav : fields.ReverseRelation[Missav]
     def __str__(self):
@@ -34,8 +35,8 @@ class Actress(Model):
 class Actor(Model):
     """ 男优 """
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    href = fields.CharField(max_length=256,null=True)
+    name = fields.CharField(max_length=100,unique=True)
+    href = fields.CharField(max_length=1024,null=True)
 
     missav : fields.ReverseRelation[Missav]
     def __str__(self):
@@ -44,8 +45,8 @@ class Actor(Model):
 class Genre(Model):
     """ 类型 """
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    href = fields.CharField(max_length=256,null=True)
+    name = fields.CharField(max_length=100,unique=True)
+    href = fields.CharField(max_length=1024,null=True)
 
     missav : fields.ReverseRelation[Missav]
     def __str__(self):
@@ -54,8 +55,8 @@ class Genre(Model):
 class Series(Model):
     """ 系列 """
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    href = fields.CharField(max_length=256,null=True)
+    name = fields.CharField(max_length=100,unique=True)
+    href = fields.CharField(max_length=1024,null=True)
 
     missav : fields.ReverseRelation[Missav]
     def __str__(self):
@@ -64,8 +65,8 @@ class Series(Model):
 class Maker(Model):
     """ 制作商 """
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    href = fields.CharField(max_length=256,null=True)
+    name = fields.CharField(max_length=100,unique=True)
+    href = fields.CharField(max_length=1024,null=True)
 
     missav : fields.ReverseRelation[Missav]
     def __str__(self):
@@ -74,8 +75,8 @@ class Maker(Model):
 class Director(Model):
     """ 导演 """
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    href = fields.CharField(max_length=256,null=True)
+    name = fields.CharField(max_length=100,unique=True)
+    href = fields.CharField(max_length=1024,null=True)
 
     missav : fields.ReverseRelation[Missav]
     def __str__(self):
@@ -84,8 +85,8 @@ class Director(Model):
 class Tag(Model):
     """ 标签 同 label"""
     id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=100)
-    href = fields.CharField(max_length=256,null=True)
+    name = fields.CharField(max_length=100,unique=True)
+    href = fields.CharField(max_length=1024,null=True)
 
     missav : fields.ReverseRelation[Missav]
     def __str__(self):
